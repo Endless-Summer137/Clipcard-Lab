@@ -2,7 +2,7 @@ import { Bookmark, Clock, ShieldAlert, ShieldCheck, ShieldX, Trash2, Upload } fr
 import type { ChangeEvent } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 type SourceMode = 'sample' | 'upload';
 type ScenarioId = 'food' | 'game' | 'lowInfo';
@@ -60,6 +60,13 @@ interface ClipEvent {
   adCandidateId: AdCandidateId;
   gateStatus: GateStatus;
   videoDuration: number;
+  cardGenerated: number;
+  saved: number;
+  adShown: number;
+  adClicked: number;
+  shared: number;
+  deleted: number;
+  regenerated: number;
   createdAt: string;
 }
 
@@ -158,6 +165,14 @@ const statusIcons: Record<GateStatus, LucideIcon> = {
   拒绝展示: ShieldX,
 };
 
+const optionalTrendMetrics = [
+  { key: 'shared', label: '分享数', color: '#38bdf8' },
+  { key: 'deleted', label: '删除数', color: '#fb7185' },
+  { key: 'regenerated', label: '重生成数', color: '#c084fc' },
+] as const;
+
+type OptionalTrendMetric = (typeof optionalTrendMetrics)[number]['key'];
+
 function getClipTypeLabel(clipType: ClipTypeId) {
   return clipTypes.find((item) => item.id === clipType)?.label ?? '其他';
 }
@@ -170,7 +185,18 @@ function readEvents(): ClipEvent[] {
     return parsed
       .map((event) => {
         if (event.sourceKey && event.clipType && typeof event.startTime === 'number') {
-          return event as ClipEvent;
+          const gateStatus = event.gateStatus ?? '限制展示';
+          return {
+            ...event,
+            gateStatus,
+            cardGenerated: event.cardGenerated ?? 1,
+            saved: event.saved ?? 1,
+            adShown: event.adShown ?? (gateStatus === '允许展示' && event.adCandidateId !== 'none' ? 1 : 0),
+            adClicked: event.adClicked ?? 0,
+            shared: event.shared ?? 0,
+            deleted: event.deleted ?? 0,
+            regenerated: event.regenerated ?? 0,
+          } as ClipEvent;
         }
 
         const legacyScenario = scenarios.find((item) => item.id === event.scenarioId);
@@ -188,6 +214,13 @@ function readEvents(): ClipEvent[] {
           adCandidateId: event.adCandidateId ?? 'none',
           gateStatus: event.gateStatus ?? '限制展示',
           videoDuration: legacyScenario.duration,
+          cardGenerated: 1,
+          saved: 1,
+          adShown: event.gateStatus === '允许展示' && event.adCandidateId !== 'none' ? 1 : 0,
+          adClicked: 0,
+          shared: 0,
+          deleted: 0,
+          regenerated: 0,
           createdAt: event.createdAt ?? new Date().toISOString(),
         } satisfies ClipEvent;
       })
@@ -212,7 +245,7 @@ function getGate(clipType: ClipTypeId, adCandidateId: AdCandidateId, contextText
   if (adCandidateId === 'none') {
     return {
       status: '允许展示',
-      reason: '当前选择为无广告，更适合只记录片段事件和创作者热力图；页面不应把片段卡包装成商业推荐。',
+      reason: '当前选择为无广告，更适合只记录片段事件和片段兴趣趋势；页面不应把片段卡包装成商业推荐。',
     };
   }
 
@@ -367,6 +400,11 @@ export default function App() {
   const [clipDescription, setClipDescription] = useState('');
   const [transcript, setTranscript] = useState('');
   const [uploadedClipType, setUploadedClipType] = useState<ClipTypeId>('food');
+  const [visibleOptionalMetrics, setVisibleOptionalMetrics] = useState<Record<OptionalTrendMetric, boolean>>({
+    shared: false,
+    deleted: false,
+    regenerated: false,
+  });
 
   const scenario = scenarios.find((item) => item.id === scenarioId)!;
   const activeDuration = sourceMode === 'upload' ? videoDuration : scenario.duration;
@@ -404,11 +442,20 @@ export default function App() {
     }
   }, [durationMax, endTime, startTime]);
 
-  const heatmapData = useMemo(() => {
+  const trendData = useMemo(() => {
     const bins = Array.from({ length: Math.max(1, Math.ceil(durationMax / 10)) }, (_, index) => {
       const start = index * 10;
       const end = Math.min(start + 9, durationMax);
-      return { bucket: formatTime(start) + '-' + formatTime(end), count: 0 };
+      return {
+        bucket: formatTime(start) + '-' + formatTime(end),
+        cardGenerated: 0,
+        saved: 0,
+        adShown: 0,
+        adClicked: 0,
+        shared: 0,
+        deleted: 0,
+        regenerated: 0,
+      };
     });
 
     events
@@ -416,7 +463,13 @@ export default function App() {
       .forEach((event) => {
         const index = Math.floor(event.startTime / 10);
         if (bins[index]) {
-          bins[index].count += 1;
+          bins[index].cardGenerated += event.cardGenerated ?? 1;
+          bins[index].saved += event.saved ?? 1;
+          bins[index].adShown += event.adShown ?? 0;
+          bins[index].adClicked += event.adClicked ?? 0;
+          bins[index].shared += event.shared ?? 0;
+          bins[index].deleted += event.deleted ?? 0;
+          bins[index].regenerated += event.regenerated ?? 0;
         }
       });
 
@@ -475,6 +528,13 @@ export default function App() {
       adCandidateId,
       gateStatus: card.gateStatus,
       videoDuration: durationMax,
+      cardGenerated: 1,
+      saved: 1,
+      adShown: card.gateStatus === '允许展示' && adCandidateId !== 'none' ? 1 : 0,
+      adClicked: 0,
+      shared: 0,
+      deleted: 0,
+      regenerated: 0,
       createdAt: card.createdAt,
     };
     const nextEvents = [event, ...events].slice(0, 120);
@@ -488,6 +548,25 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEY);
   }
 
+  function toggleOptionalMetric(metric: OptionalTrendMetric) {
+    setVisibleOptionalMetrics((current) => ({
+      ...current,
+      [metric]: !current[metric],
+    }));
+  }
+
+  function simulateAdClick() {
+    if (!currentCard || currentCard.gateStatus !== '允许展示' || currentCard.adCandidate === '无广告') {
+      return;
+    }
+
+    const nextEvents = events.map((event) =>
+      event.id === currentCard.id ? { ...event, adClicked: (event.adClicked ?? 0) + 1 } : event,
+    );
+    setEvents(nextEvents);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(nextEvents));
+  }
+
   const sampleModeClass = 'rounded px-3 py-2 font-medium ' + (sourceMode === 'sample' ? 'bg-teal-300 text-slate-950' : 'text-slate-300');
   const uploadModeClass = 'rounded px-3 py-2 font-medium ' + (sourceMode === 'upload' ? 'bg-teal-300 text-slate-950' : 'text-slate-300');
 
@@ -498,7 +577,7 @@ export default function App() {
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.18em] text-teal-300">Clipcard Lab</p>
             <h1 className="mt-2 text-2xl font-semibold text-white md:text-4xl">短视频片段意图卡验证工作台</h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 md:text-base">验证选择视频片段、生成片段卡、记录片段事件、观察创作者热力图和广告适配判断的核心机制。</p>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 md:text-base">验证选择视频片段、生成片段卡、记录片段事件、观察片段兴趣趋势和广告适配判断的核心机制。</p>
           </div>
           <div className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-slate-400">本地前端数据 / localStorage events</div>
         </header>
@@ -690,25 +769,44 @@ export default function App() {
           <div className="rounded-lg border border-white/10 bg-slate-950/70 p-4 md:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-white">创作者热力图区</h2>
-                <p className="mt-1 text-sm text-slate-400">按 10 秒区间聚合当前视频或样例的卡片生成次数。</p>
+                <h2 className="text-lg font-semibold text-white">片段兴趣趋势图</h2>
+                <p className="mt-1 text-sm text-slate-400">按 10 秒区间聚合当前视频或样例的多指标片段行为。</p>
               </div>
               <button type="button" onClick={clearEvents} className="inline-flex items-center justify-center gap-2 rounded-md border border-white/10 px-3 py-2 text-sm text-slate-300 hover:border-rose-300/60 hover:text-rose-200">
                 <Trash2 className="h-4 w-4" />
                 清空事件
               </button>
             </div>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-300">
+              {optionalTrendMetrics.map((metric) => (
+                <label key={metric.key} className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={visibleOptionalMetrics[metric.key]}
+                    onChange={() => toggleOptionalMetric(metric.key)}
+                    className="accent-teal-300"
+                  />
+                  {metric.label}
+                </label>
+              ))}
+            </div>
             <div className="mt-5 h-72 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={heatmapData} margin={{ top: 10, right: 8, left: -22, bottom: 32 }}>
+                <LineChart data={trendData} margin={{ top: 10, right: 14, left: -22, bottom: 32 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.16)" />
                   <XAxis dataKey="bucket" angle={-25} textAnchor="end" interval={0} height={58} />
                   <YAxis allowDecimals={false} />
                   <Tooltip cursor={{ fill: 'rgba(45, 212, 191, 0.08)' }} contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8 }} labelStyle={{ color: '#e2e8f0' }} />
-                  <Bar dataKey="count" name="卡片生成次数" fill="#2dd4bf" radius={[5, 5, 0, 0]} />
-                </BarChart>
+                  <Line type="monotone" dataKey="cardGenerated" name="卡片生成数" stroke="#2dd4bf" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="saved" name="保存数" stroke="#facc15" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="adClicked" name="广告点击数" stroke="#fb923c" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+                  {visibleOptionalMetrics.shared ? <Line type="monotone" dataKey="shared" name="分享数" stroke="#38bdf8" strokeWidth={2} dot={{ r: 2 }} /> : null}
+                  {visibleOptionalMetrics.deleted ? <Line type="monotone" dataKey="deleted" name="删除数" stroke="#fb7185" strokeWidth={2} dot={{ r: 2 }} /> : null}
+                  {visibleOptionalMetrics.regenerated ? <Line type="monotone" dataKey="regenerated" name="重生成数" stroke="#c084fc" strokeWidth={2} dot={{ r: 2 }} /> : null}
+                </LineChart>
               </ResponsiveContainer>
             </div>
+            <p className="mt-3 text-sm leading-6 text-slate-400">折线表示不同片段行为在视频时间轴上的变化，用于判断观众真正想保存、复看或转化的片段。</p>
           </div>
 
           <div className="rounded-lg border border-white/10 bg-slate-950/70 p-4 md:p-5">
@@ -728,6 +826,14 @@ export default function App() {
               </div>
               <div className={'mt-4 rounded-md border px-3 py-3 text-sm font-medium ' + statusStyles[gate.status]}>{gate.status}</div>
               <p className="mt-4 text-sm leading-6 text-slate-400">{gate.reason}</p>
+              <button
+                type="button"
+                onClick={simulateAdClick}
+                disabled={!currentCard || currentCard.gateStatus !== '允许展示' || currentCard.adCandidate === '无广告'}
+                className="mt-4 rounded-md border border-white/10 px-3 py-2 text-sm text-slate-300 hover:border-orange-300/60 hover:text-orange-200 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                模拟广告点击
+              </button>
               <p className="mt-4 border-t border-white/10 pt-4 text-sm leading-6 text-slate-300">广告必须明确标注为广告或商业内容，不得伪装成 AI 中立建议，也不得用片段卡的弱判断包装成确定性推荐。</p>
             </div>
           </div>

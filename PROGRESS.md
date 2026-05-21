@@ -7,12 +7,14 @@
 - Implemented sample scene mode for 美食探店, 游戏高光, and 低信息片段.
 - Added real video test mode for local `mp4` / `webm` upload, HTML5 video preview, clip time controls, user-entered transcript/description, light-card fallback, event logging, heatmap aggregation, and ad-fit gate decisions.
 - Added durable repository workflow rules in `WORKFLOW.md`.
+- Replaced the creator heatmap bar chart with a multi-metric “片段兴趣趋势图” line chart for card generation, saves, ad clicks, and optional share/delete/regeneration fields.
 
 ## Validation
 
 - `npm.cmd install` completed successfully.
 - `npm.cmd run build` completed successfully after the real video test mode update.
 - In-app browser verification passed for upload-mode UI, light-card generation, heatmap visibility, and no console errors.
+- `npm.cmd run build` completed successfully after replacing the bar chart with the multi-metric line chart.
 
 ## Current Repository Agreement
 
