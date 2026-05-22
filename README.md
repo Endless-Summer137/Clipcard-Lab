@@ -4,20 +4,36 @@ A Vite + React + TypeScript prototype for validating short-video clip intent car
 
 Main repository: https://github.com/Endless-Summer137/Clipcard-Lab.git
 
+## Architecture
+
+The app separates shared mechanism logic from page-level demos:
+
+- `src/core/budgetGate.ts`: analysis budget and minimum necessary audio-window strategy.
+- `src/core/adGate.ts`: ad-fit decision and mandatory ad disclosure metadata.
+- `src/core/cardEngine.ts`: local rule-based clip-card generation, with an input shape ready for future AI APIs.
+- `src/core/cardStore.ts`: local `localStorage` card persistence.
+- `src/core/eventStore.ts`: local `localStorage` user event logging.
+- `src/core/trendAnalytics.ts`: video-time bucket aggregation for creator trend charts.
+
+Page responsibilities are intentionally split:
+
+- `DemoFeedPage`: user-facing short-video feed demo. It calls the core modules and shows the generated card result, not the internal gates.
+- `CreatorCenter`: reads stored cards/events and shows creator-facing trend summaries.
+- `InternalLab`: shows budget/ad/card-engine internals for explanation and review.
+- `MyCardsPage` and `ClipbookPage`: placeholders for future card library and clipbook flows.
+
 ## What It Tests
 
-- Sample clip scenarios: 美食探店, 游戏高光, 低信息片段.
-- Real video test mode for local `mp4` / `webm` uploads.
-- Clip start/end selection with seconds inputs and sliders.
-- Analysis budget gate that chooses Level 0 / Level 1 / Level 2 / Level 3 / Level 4 before frame extraction.
-- Local canvas-based key-frame extraction for real videos, with 0 / 1 / 3 / 5 frame budgets.
+- Sample clip scenarios: 美食探店, 游戏高光, 旅行风景, 低信息片段.
+- Real video test mode for local `mp4` / `webm` uploads through the hidden demo-material configuration mode.
+- Clip start/end selection with seconds inputs and demo defaults.
+- Analysis budget gate that chooses Level 0 / Level 1 / Level 2 / Level 3 / Level 4 before future media analysis.
 - Minimum necessary audio-window strategy for each card-generating budget level, with Level 4 reserved for audio/subtitle-led high-information clips.
-- Boundary prompts for clips that need manual description, subtitles, or future audio/visual model support.
-- Isolated short-video playback concept demo screen with a hidden `Ctrl+U` local-material configuration mode.
-- Weak-assertion clip card generation based on user-entered title, description, transcript, video type, and ad candidate.
-- Local `localStorage` event logging.
-- Multi-metric 10-second trend buckets with `recharts`, including card generation, saves, and simulated ad clicks.
+- Weak-assertion clip card generation based on user-entered title, description, tags, transcript, segment note, and ad candidate.
+- Local `localStorage` card persistence and event logging.
+- Multi-metric 10-second trend buckets with `recharts`, including card generation, saves, shares, clipbook adds, and ad clicks.
 - Ad-fit gate decisions that require clear ad labeling and do not present ads as neutral AI advice.
+- A shared-core architecture so the short-video feed, creator center, internal lab, future card library, and future clipbook use the same card, event, trend, budget, and ad logic.
 
 Current MVP limitation: the app does not automatically recognize full video frames or audio. It validates the clip-card mechanism through user-entered subtitles and descriptions.
 
