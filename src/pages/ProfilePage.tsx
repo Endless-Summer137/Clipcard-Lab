@@ -50,7 +50,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
           </div>
           <p className="mt-4 text-sm leading-6 text-white/76">用短视频片段卡验证“保存这一刻”的演示账号。</p>
 
-          <div className="mt-5 grid grid-cols-4 gap-3 text-center">
+          <div className="mt-5 grid grid-cols-5 items-center gap-2 text-center">
             {[
               ['1.2w', '获赞'],
               ['86', '互关'],
@@ -62,10 +62,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
                 <p className="mt-1 text-xs text-white/52">{label}</p>
               </div>
             ))}
-          </div>
-
-          <div className="mt-5">
-            <button type="button" className="rounded-md bg-white/12 px-4 py-2.5 text-sm font-medium text-white">
+            <button type="button" className="h-8 min-w-[72px] justify-self-end whitespace-nowrap rounded-full bg-white/10 px-2.5 text-xs font-medium leading-8 text-white/86">
               编辑资料
             </button>
           </div>
