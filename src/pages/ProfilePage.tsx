@@ -25,7 +25,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
 
   return (
     <main className="min-h-screen bg-black text-white">
-      <section className="mx-auto min-h-screen w-full max-w-[430px] bg-zinc-950">
+      <section className="mx-auto min-h-screen w-full max-w-[430px] bg-zinc-950 pb-16">
         <header className="flex items-center justify-between px-5 py-4">
           <button type="button" className="text-white" aria-label="添加朋友">
             <UserPlus className="h-6 w-6" strokeWidth={2} />
@@ -45,7 +45,6 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
             <div className="h-[88px] w-[88px] rounded-full border border-white/15 bg-gradient-to-br from-teal-200/70 via-white/60 to-orange-200/60" />
             <div className="pb-1">
               <h1 className="text-2xl font-semibold">ClipCard Demo</h1>
-              <p className="mt-1 text-sm text-white/58">clipcard_demo</p>
               <p className="mt-1 text-sm text-white/58">ID：clipcard_2026</p>
             </div>
           </div>
@@ -54,8 +53,8 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
           <div className="mt-5 grid grid-cols-4 gap-3 text-center">
             {[
               ['1.2w', '获赞'],
-              ['128', '互关'],
-              ['86', '关注'],
+              ['86', '互关'],
+              ['128', '关注'],
               ['2,026', '粉丝'],
             ].map(([value, label]) => (
               <div key={label}>
@@ -65,17 +64,9 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
             ))}
           </div>
 
-          <div className="mt-5 grid grid-cols-[1fr_auto] gap-2">
+          <div className="mt-5">
             <button type="button" className="rounded-md bg-white/12 px-4 py-2.5 text-sm font-medium text-white">
               编辑资料
-            </button>
-            <button
-              type="button"
-              onClick={() => onNavigate('creatorCenter', { dev: false })}
-              className="inline-flex items-center gap-2 rounded-md bg-white/12 px-3 py-2.5 text-sm font-medium text-white"
-            >
-              <Lightbulb className="h-4 w-4" />
-              创作者中心
             </button>
           </div>
         </section>
@@ -132,6 +123,14 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
             </div>
           ) : null}
         </section>
+
+        <footer className="fixed bottom-0 left-1/2 z-30 grid w-full max-w-[430px] -translate-x-1/2 grid-cols-5 border-t border-white/10 bg-black/72 px-2 py-3 text-center text-xs text-white/70 backdrop-blur">
+          <button type="button" onClick={() => onNavigate('demoFeed', { dev: false })}>首页</button>
+          <button type="button">朋友</button>
+          <button type="button" className="text-lg leading-none text-white">+</button>
+          <button type="button">消息</button>
+          <button type="button" className="font-semibold text-white">我</button>
+        </footer>
       </section>
     </main>
   );

@@ -18,6 +18,7 @@
 - Added URL-driven page navigation for `demo`, `admin`, `internal`, `creator`, `profile`, `cards`, and `clipbook`, with the development navigation shown only when `dev=1`.
 - Split hidden material configuration into `AdminConfigPage`, including return buttons for the clean demo page and the development navigation page.
 - Added a short-video-style `ProfilePage` with platform-like profile actions, two creator-center entrances, a `卡片` tab, and simple routes to `MyCardsPage` and `ClipbookPage`.
+- Polished `ProfilePage` navigation and profile copy: restored the bottom app Tab on profile, removed the duplicate handle line, corrected static profile metrics, and kept only the feature-grid creator-center entry.
 
 ## Validation
 
@@ -32,6 +33,7 @@
 - In-app browser verification confirmed the refactored app loads, `DemoFeedPage` can generate a card and expose card actions, `CreatorCenter` opens the trend view, `InternalLab` shows budget/ad/card-engine internals, and console error logs are empty.
 - `npm.cmd run build` completed successfully after the short-video playback UI correction. Browser verification confirmed default recording mode hides the workbench header, `?dev=1` restores page navigation, the right action rail has no button backgrounds or permanent text, and the bookmark still opens the clip-card overlay.
 - `npm.cmd run build` completed successfully after the navigation/profile update. Browser verification confirmed clean default demo mode, bottom-tab navigation to profile, profile card-tab entries, my-cards and clipbook return paths, `?dev=1` development navigation, direct `page=` URLs, `Ctrl+U` admin entry, and `Esc` return to `?page=demo&dev=1`.
+- `npm.cmd run build` completed successfully after the `ProfilePage` polish. Browser verification confirmed profile keeps the bottom Tab, `首页` returns to `?page=demo`, the duplicate `clipcard_demo` line is gone, metrics read `1.2w / 86 / 128 / 2,026`, and only one visible creator-center entry remains.
 
 ## Current Repository Agreement
 
