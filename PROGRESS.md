@@ -10,6 +10,7 @@
 - Replaced the creator heatmap bar chart with a multi-metric “片段兴趣趋势图” line chart for card generation, saves, ad clicks, and optional share/delete/regeneration fields.
 - Added an analysis budget gate for real videos, including Level 0-4 budget display, cost hints, audio-dependency prompts, and local canvas key-frame extraction.
 - Updated the analysis budget gate so every card-generating level uses a minimum necessary audio-window strategy, while Level 4 now represents audio/subtitle-led high-information clips.
+- Added an isolated short-video playback concept demo screen, with ordinary playback UI separated from a hidden `Ctrl+U` local-material configuration mode.
 
 ## Validation
 
@@ -19,6 +20,7 @@
 - `npm.cmd run build` completed successfully after replacing the bar chart with the multi-metric line chart.
 - `npm.cmd run build` completed successfully after adding the analysis budget gate and key-frame extraction workflow.
 - `npm.cmd run build` completed successfully after revising Level 0-4 audio-window rules.
+- `npm.cmd run build` completed successfully after adding the short-video playback demo screen; browser verification confirmed ordinary mode hides upload/config controls and `Ctrl+U` toggles the hidden 3-video configuration panel.
 
 ## Current Repository Agreement
 

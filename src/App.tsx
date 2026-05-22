@@ -1,5 +1,5 @@
 import { Bookmark, Clock, ShieldAlert, ShieldCheck, ShieldX, Trash2, Upload } from 'lucide-react';
-import type { ChangeEvent } from 'react';
+import type { ChangeEvent, TouchEvent, WheelEvent } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -106,8 +106,49 @@ interface KeyFrame {
   dataUrl: string;
 }
 
+interface DemoVideoConfig {
+  id: string;
+  videoDataUrl: string;
+  author: string;
+  description: string;
+  cardTitle: string;
+  cardSummary: string;
+  clipTime: string;
+}
+
 const STORAGE_KEY = 'clipcard-lab-events';
+const DEMO_STORAGE_KEY = 'clipcard-lab-short-video-demo';
 const inputClasses = 'mt-2 w-full rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none focus:border-teal-300';
+
+const defaultDemoVideos: DemoVideoConfig[] = [
+  {
+    id: 'demo-1',
+    videoDataUrl: '',
+    author: '@clipcard_food',
+    description: '深夜小店的一口热汤，适合验证“保存这一刻”的轻量心智。',
+    cardTitle: '可能是到店兴趣片段',
+    cardSummary: '从当前片段看，更像是一次被菜品状态触发的保存行为。',
+    clipTime: '00:08 - 00:13',
+  },
+  {
+    id: 'demo-2',
+    videoDataUrl: '',
+    author: '@clipcard_game',
+    description: '团战高光和操作节奏集中出现，适合验证复看与设备兴趣。',
+    cardTitle: '可能是游戏高光片段',
+    cardSummary: '从当前片段看，保存理由可能与复盘操作或外设兴趣有关。',
+    clipTime: '00:21 - 00:28',
+  },
+  {
+    id: 'demo-3',
+    videoDataUrl: '',
+    author: '@clipcard_travel',
+    description: '城市转角、风景和停留动作，适合验证地点类弱意图卡。',
+    cardTitle: '可能是旅行风景片段',
+    cardSummary: '如果后续内容进入地点或路线说明，可能形成更明确的出行兴趣。',
+    clipTime: '00:04 - 00:11',
+  },
+];
 
 const scenarios: Scenario[] = [
   {
@@ -254,6 +295,38 @@ function readEvents(): ClipEvent[] {
   } catch {
     return [];
   }
+}
+
+function readDemoVideos(): DemoVideoConfig[] {
+  try {
+    const raw = localStorage.getItem(DEMO_STORAGE_KEY);
+    if (!raw) {
+      return defaultDemoVideos;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<DemoVideoConfig>[];
+    return defaultDemoVideos.map((fallback, index) => ({
+      ...fallback,
+      ...parsed[index],
+      id: fallback.id,
+      videoDataUrl: parsed[index]?.videoDataUrl ?? fallback.videoDataUrl,
+    }));
+  } catch {
+    return defaultDemoVideos;
+  }
+}
+
+function persistDemoVideos(videos: DemoVideoConfig[]) {
+  localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(videos.slice(0, 3)));
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('视频读取失败，请重新选择文件。'));
+    reader.readAsDataURL(file);
+  });
 }
 
 function formatTime(seconds: number) {
@@ -597,7 +670,211 @@ function buildCard(input: BuildCardInput): ClipCard {
   };
 }
 
+function ShortVideoDemoScreen({ onBack }: { onBack: () => void }) {
+  const [videos, setVideos] = useState<DemoVideoConfig[]>(() => readDemoVideos());
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [configMode, setConfigMode] = useState(false);
+  const [savedCardVisible, setSavedCardVisible] = useState(false);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+
+  const activeVideo = videos[activeIndex] ?? defaultDemoVideos[0];
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey && event.key.toLowerCase() === 'u') {
+        event.preventDefault();
+        setConfigMode((value) => !value);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  function switchVideo(direction: 1 | -1) {
+    setSavedCardVisible(false);
+    setActiveIndex((index) => (index + direction + 3) % 3);
+  }
+
+  function updateDemoVideo(index: number, patch: Partial<DemoVideoConfig>) {
+    setVideos((current) => {
+      const next = current.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
+      persistDemoVideos(next);
+      return next;
+    });
+  }
+
+  async function handleDemoVideoUpload(index: number, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    const dataUrl = await fileToDataUrl(file);
+    updateDemoVideo(index, { videoDataUrl: dataUrl });
+  }
+
+  function handleWheel(event: WheelEvent<HTMLElement>) {
+    if (Math.abs(event.deltaY) < 24) {
+      return;
+    }
+
+    switchVideo(event.deltaY > 0 ? 1 : -1);
+  }
+
+  function handleTouchEnd(event: TouchEvent<HTMLElement>) {
+    if (touchStartY === null) {
+      return;
+    }
+
+    const deltaY = touchStartY - event.changedTouches[0].clientY;
+    if (Math.abs(deltaY) > 42) {
+      switchVideo(deltaY > 0 ? 1 : -1);
+    }
+    setTouchStartY(null);
+  }
+
+  return (
+    <main
+      className="relative min-h-screen overflow-hidden bg-black text-white"
+      onWheel={handleWheel}
+      onTouchStart={(event) => setTouchStartY(event.touches[0].clientY)}
+      onTouchEnd={handleTouchEnd}
+    >
+      <section className="relative mx-auto flex min-h-screen max-w-md flex-col justify-between overflow-hidden bg-slate-950 shadow-2xl shadow-black/50 md:max-w-lg">
+        {activeVideo.videoDataUrl ? (
+          <video
+            key={activeVideo.id + activeVideo.videoDataUrl}
+            src={activeVideo.videoDataUrl}
+            className="absolute inset-0 h-full w-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls={false}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(45,212,191,0.42),transparent_28%),radial-gradient(circle_at_70%_55%,rgba(251,146,60,0.34),transparent_32%),linear-gradient(160deg,#020617,#111827_50%,#0f172a)]" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black/75" />
+
+        <header className="relative z-10 flex items-center justify-center gap-6 px-5 pt-5 text-sm font-medium text-white/75">
+          <span>关注</span>
+          <span className="border-b-2 border-white pb-1 text-white">推荐</span>
+          <span>附近</span>
+        </header>
+
+        <div className="relative z-10 flex flex-1 items-center justify-center px-6 text-center">
+          {!activeVideo.videoDataUrl ? (
+            <div className="rounded-xl border border-white/15 bg-black/20 px-5 py-6 backdrop-blur">
+              <p className="text-sm uppercase tracking-[0.2em] text-white/55">Demo Placeholder</p>
+              <h2 className="mt-3 text-2xl font-semibold">{activeVideo.cardTitle}</h2>
+              <p className="mt-3 text-sm leading-6 text-white/70">{activeVideo.cardSummary}</p>
+            </div>
+          ) : null}
+        </div>
+
+        <aside className="absolute bottom-28 right-4 z-20 flex flex-col items-center gap-4 text-xs text-white">
+          <button type="button" className="grid h-11 w-11 place-items-center rounded-full bg-white/15 backdrop-blur">赞</button>
+          <button type="button" className="grid h-11 w-11 place-items-center rounded-full bg-white/15 backdrop-blur">评</button>
+          <button type="button" className="grid h-11 w-11 place-items-center rounded-full bg-white/15 backdrop-blur">转</button>
+          <button
+            type="button"
+            onClick={() => setSavedCardVisible(true)}
+            className="grid h-12 w-12 place-items-center rounded-full bg-teal-300 text-slate-950 shadow-lg shadow-teal-950/30"
+            aria-label="保存这一刻"
+          >
+            <Bookmark className="h-5 w-5" />
+          </button>
+          <span className="w-16 text-center text-[11px] leading-4">保存这一刻</span>
+        </aside>
+
+        <section className="relative z-10 px-5 pb-20">
+          <p className="text-sm font-semibold">{activeVideo.author || defaultDemoVideos[activeIndex].author}</p>
+          <p className="mt-2 max-w-[78%] text-sm leading-6 text-white/82">{activeVideo.description || defaultDemoVideos[activeIndex].description}</p>
+          <p className="mt-2 text-xs text-white/55">片段时间：{activeVideo.clipTime || defaultDemoVideos[activeIndex].clipTime}</p>
+          {savedCardVisible ? (
+            <div className="mt-4 max-w-[82%] rounded-lg border border-teal-300/30 bg-black/45 p-3 backdrop-blur">
+              <p className="text-sm font-semibold text-teal-100">{activeVideo.cardTitle || defaultDemoVideos[activeIndex].cardTitle}</p>
+              <p className="mt-1 text-xs leading-5 text-white/75">{activeVideo.cardSummary || defaultDemoVideos[activeIndex].cardSummary}</p>
+            </div>
+          ) : null}
+        </section>
+
+        <footer className="absolute bottom-0 left-0 right-0 z-20 grid grid-cols-5 border-t border-white/10 bg-black/35 px-2 py-3 text-center text-xs text-white/70 backdrop-blur">
+          <span>首页</span>
+          <span>朋友</span>
+          <button type="button" onClick={onBack} className="text-white">实验台</button>
+          <span>消息</span>
+          <span>我</span>
+        </footer>
+
+        <div className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-2">
+          {[0, 1, 2].map((index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => {
+                setSavedCardVisible(false);
+                setActiveIndex(index);
+              }}
+              className={'h-2 w-2 rounded-full ' + (activeIndex === index ? 'bg-white' : 'bg-white/35')}
+              aria-label={`切换到演示视频 ${index + 1}`}
+            />
+          ))}
+        </div>
+      </section>
+
+      {configMode ? (
+        <section className="absolute inset-x-0 bottom-0 z-30 mx-auto max-h-[72vh] max-w-4xl overflow-auto rounded-t-2xl border border-white/10 bg-slate-950/95 p-5 text-slate-100 shadow-2xl backdrop-blur">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">隐藏演示素材配置</h2>
+              <p className="mt-1 text-sm text-slate-400">再次按 Ctrl+U 退出。配置会保存到 localStorage，普通模式只读取这些素材。</p>
+            </div>
+            <button type="button" onClick={() => setConfigMode(false)} className="rounded-md border border-white/10 px-3 py-2 text-sm text-slate-300">
+              关闭配置
+            </button>
+          </div>
+          <div className="mt-5 grid gap-4 lg:grid-cols-3">
+            {videos.map((video, index) => (
+              <div key={video.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                <h3 className="text-sm font-semibold text-white">演示视频 {index + 1}</h3>
+                <label className="mt-3 block text-sm text-slate-300">
+                  本地视频 mp4/webm
+                  <input type="file" accept="video/mp4,video/webm" onChange={(event) => handleDemoVideoUpload(index, event)} className={inputClasses} />
+                </label>
+                <label className="mt-3 block text-sm text-slate-300">
+                  作者名
+                  <input value={video.author} onChange={(event) => updateDemoVideo(index, { author: event.target.value })} className={inputClasses} />
+                </label>
+                <label className="mt-3 block text-sm text-slate-300">
+                  视频简介
+                  <textarea value={video.description} onChange={(event) => updateDemoVideo(index, { description: event.target.value })} rows={3} className={inputClasses} />
+                </label>
+                <label className="mt-3 block text-sm text-slate-300">
+                  卡片标题
+                  <input value={video.cardTitle} onChange={(event) => updateDemoVideo(index, { cardTitle: event.target.value })} className={inputClasses} />
+                </label>
+                <label className="mt-3 block text-sm text-slate-300">
+                  卡片摘要
+                  <textarea value={video.cardSummary} onChange={(event) => updateDemoVideo(index, { cardSummary: event.target.value })} rows={3} className={inputClasses} />
+                </label>
+                <label className="mt-3 block text-sm text-slate-300">
+                  片段时间
+                  <input value={video.clipTime} onChange={(event) => updateDemoVideo(index, { clipTime: event.target.value })} className={inputClasses} />
+                </label>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </main>
+  );
+}
+
 export default function App() {
+  const [appView, setAppView] = useState<'lab' | 'shortVideoDemo'>('lab');
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [sourceMode, setSourceMode] = useState<SourceMode>('sample');
   const [scenarioId, setScenarioId] = useState<ScenarioId>('food');
@@ -874,6 +1151,10 @@ export default function App() {
   const sampleModeClass = 'rounded px-3 py-2 font-medium ' + (sourceMode === 'sample' ? 'bg-teal-300 text-slate-950' : 'text-slate-300');
   const uploadModeClass = 'rounded px-3 py-2 font-medium ' + (sourceMode === 'upload' ? 'bg-teal-300 text-slate-950' : 'text-slate-300');
 
+  if (appView === 'shortVideoDemo') {
+    return <ShortVideoDemoScreen onBack={() => setAppView('lab')} />;
+  }
+
   return (
     <main className="min-h-screen px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-5">
@@ -883,7 +1164,16 @@ export default function App() {
             <h1 className="mt-2 text-2xl font-semibold text-white md:text-4xl">短视频片段意图卡验证工作台</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 md:text-base">验证选择视频片段、生成片段卡、记录片段事件、观察片段兴趣趋势和广告适配判断的核心机制。</p>
           </div>
-          <div className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-slate-400">本地前端数据 / localStorage events</div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setAppView('shortVideoDemo')}
+              className="rounded-md border border-teal-300/35 px-3 py-2 text-sm font-medium text-teal-100 hover:bg-teal-300/10"
+            >
+              短视频播放页演示屏
+            </button>
+            <div className="rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-slate-400">本地前端数据 / localStorage events</div>
+          </div>
         </header>
 
         <div className="rounded-lg border border-amber-300/25 bg-amber-300/[0.08] p-4 text-sm leading-6 text-amber-100">当前版本不自动识别完整视频画面和声音，先通过用户输入的字幕/说明验证片段卡机制。</div>
