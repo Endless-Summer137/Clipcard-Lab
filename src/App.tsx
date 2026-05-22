@@ -95,6 +95,8 @@ interface AnalysisBudget {
   frameCount: 0 | 1 | 3 | 5;
   reason: string;
   audioHint: string | null;
+  audioWindowStrategy: string;
+  needsFullAudioOrSubtitles: string;
   canExtractFrames: boolean;
 }
 
@@ -283,16 +285,63 @@ function getFrameTimes(startTime: number, endTime: number, frameCount: AnalysisB
   }
 
   if (frameCount === 3) {
-    return [safeStart + Math.min(0.4, duration * 0.08), safeStart + duration / 2, safeEnd - Math.min(0.4, duration * 0.08)];
+    return [safeStart, safeStart + duration / 2, safeEnd];
   }
 
   return [safeStart, safeStart + duration * 0.25, safeStart + duration * 0.5, safeStart + duration * 0.75, safeEnd];
 }
 
+function mergeAudioWindows(windows: Array<{ start: number; end: number }>) {
+  const sorted = windows
+    .map((window) => ({ start: Math.max(0, window.start), end: Math.max(0, window.end) }))
+    .filter((window) => window.end > window.start)
+    .sort((a, b) => a.start - b.start);
+
+  return sorted.reduce<Array<{ start: number; end: number }>>((merged, window) => {
+    const last = merged[merged.length - 1];
+    if (!last || window.start > last.end) {
+      merged.push({ ...window });
+      return merged;
+    }
+
+    last.end = Math.max(last.end, window.end);
+    return merged;
+  }, []);
+}
+
+function formatAudioWindows(windows: Array<{ start: number; end: number }>) {
+  if (windows.length === 0) {
+    return '不提取音频。';
+  }
+
+  return windows.map((window) => `${formatTime(window.start)}-${formatTime(window.end)}`).join('，');
+}
+
+function getAudioWindowStrategy(
+  startTime: number,
+  endTime: number,
+  frameCount: AnalysisBudget['frameCount'],
+  radiusSeconds: number,
+) {
+  const frameTimes = getFrameTimes(startTime, endTime, frameCount);
+  const windows = mergeAudioWindows(frameTimes.map((time) => ({
+    start: Math.max(startTime, time - radiusSeconds),
+    end: Math.min(endTime, time + radiusSeconds),
+  })));
+
+  const totalSeconds = windows.reduce((sum, window) => sum + Math.max(0, window.end - window.start), 0);
+  return {
+    windows,
+    totalSeconds,
+    summary: `${formatAudioWindows(windows)}，合并后约 ${Math.ceil(totalSeconds)} 秒。`,
+  };
+}
+
 function getAnalysisBudget(clipType: ClipTypeId, startTime: number, endTime: number, description: string, transcript: string): AnalysisBudget {
   const clipDuration = Math.max(0, endTime - startTime);
   const hasInput = hasManualClipInput(description, transcript);
-  const audioSensitive =
+  const hasTranscript = Boolean(transcript.trim());
+  const highInformationDensity =
     clipType === 'music' ||
     clipType === 'funny' ||
     clipType === 'tutorial' ||
@@ -307,6 +356,8 @@ function getAnalysisBudget(clipType: ClipTypeId, startTime: number, endTime: num
       frameCount: 0,
       reason: '当前片段信息不足，不建议生成完整卡片。可以手动补充片段说明或字幕/口播摘录后再继续。',
       audioHint: null,
+      audioWindowStrategy: 'Level 0 不提取音频。',
+      needsFullAudioOrSubtitles: '否。信息不足时不进入音频或视觉分析。',
       canExtractFrames: false,
     };
   }
@@ -316,42 +367,61 @@ function getAnalysisBudget(clipType: ClipTypeId, startTime: number, endTime: num
   let cost: CostLevel = '中';
   let frameCount: AnalysisBudget['frameCount'] = 3;
   let reason = '片段时长大于 3 秒且不超过 30 秒，使用 3 帧标准模式：起点附近 / 中点 / 终点附近。';
+  let audioWindowStrategy = '';
+  let needsFullAudioOrSubtitles = '否。只需要围绕关键帧提取最小必要音频窗口。';
 
   if (clipDuration <= 3) {
     baseLevel = 'Level 1';
     method = '1 帧';
     cost = '低';
     frameCount = 1;
-    reason = '片段时长小于等于 3 秒，适合“保存这一刻”，只抽取中点 1 张关键帧。';
+    const audio = getAudioWindowStrategy(startTime, endTime, frameCount, 1.5);
+    audioWindowStrategy = `关键帧前后 1.5 秒，总计约 3 秒；当前片段窗口：${audio.summary}`;
+    reason = '片段时长小于等于 3 秒，适合“保存这一刻”，抽取中点 1 张关键帧，并只保留这一刻附近的最小音频窗口。';
   } else if (clipDuration <= 30) {
     baseLevel = 'Level 2';
     method = '3 帧';
     cost = '中';
     frameCount = 3;
+    const audio = getAudioWindowStrategy(startTime, endTime, frameCount, 2);
+    audioWindowStrategy = `每张关键帧前后 2 秒，重叠区间合并；理论上最多约 12 秒，当前约 ${Math.ceil(audio.totalSeconds)} 秒：${formatAudioWindows(audio.windows)}。`;
+    reason = '片段时长大于 3 秒且不超过 30 秒，使用 3 帧标准模式：起点 / 中点 / 终点，并围绕关键帧提取最小必要音频窗口。';
   } else if (clipDuration <= 60) {
     baseLevel = 'Level 3';
     method = '5 帧';
     cost = '较高';
     frameCount = 5;
-    reason = '片段时长大于 30 秒且不超过 60 秒，使用 5 帧稳健模式：起点 / 25% / 50% / 75% / 终点。';
+    const audio = getAudioWindowStrategy(startTime, endTime, frameCount, 2);
+    audioWindowStrategy = `每张关键帧前后 2 秒，重叠区间合并；理论上最多约 20 秒，当前约 ${Math.ceil(audio.totalSeconds)} 秒：${formatAudioWindows(audio.windows)}。`;
+    reason = '片段时长大于 30 秒且不超过 60 秒，使用 5 帧稳健模式：起点 / 25% / 50% / 75% / 终点，并围绕关键帧提取最小必要音频窗口。';
   } else {
     baseLevel = 'Level 3';
     method = '5 帧';
     cost = '较高';
     frameCount = 5;
-    reason = '片段超过 60 秒，建议缩短测试范围；当前默认按 Level 3 抽取 5 帧，并提示较高成本。';
+    const audio = getAudioWindowStrategy(startTime, endTime, frameCount, 2);
+    audioWindowStrategy = `片段超过 60 秒，仍按 5 个视觉锚点各前后 2 秒提取最小窗口；当前约 ${Math.ceil(audio.totalSeconds)} 秒：${formatAudioWindows(audio.windows)}。`;
+    reason = '片段超过 60 秒，建议缩短测试范围；当前默认按 Level 3 抽取 5 帧并显示较高成本提示。';
   }
 
-  if (audioSensitive) {
+  if (highInformationDensity) {
+    const level4FrameCount: AnalysisBudget['frameCount'] = clipDuration > 30 ? 5 : 3;
+    const longClipWarning = clipDuration > 60 ? '区间超过 60 秒，建议缩短片段或只分析关键区间。' : '';
     return {
       level: 'Level 4',
       baseLevel,
-      method: '需要音频补充',
+      method: level4FrameCount === 5 ? '5 帧' : '3 帧',
       cost: '需要额外音频成本',
-      frameCount,
-      reason,
-      audioHint: '该类型片段可能依赖音频、口播或字幕，仅靠关键帧可能不足以生成可靠卡片。当前版本暂不转写音频，只显示提示。',
-      canExtractFrames: frameCount > 0,
+      frameCount: level4FrameCount,
+      reason: `${reason} 该类型属于高信息密度内容，音频/字幕是主信息源，关键帧只作为视觉锚点。${longClipWarning}`,
+      audioHint: hasTranscript
+        ? '已填写字幕/口播摘录，当前预算优先使用字幕；关键帧仅作为定位和后续视觉识别准备。'
+        : `未填写字幕/口播摘录，需要提取用户选择区间的相对完整音频。${longClipWarning}`,
+      audioWindowStrategy: hasTranscript
+        ? '优先使用字幕/口播摘录；只保留 3-5 张关键帧作为视觉锚点，不扩大抽帧数量。'
+        : `需要覆盖用户选择区间的相对完整音频：${formatTime(startTime)}-${formatTime(endTime)}。`,
+      needsFullAudioOrSubtitles: hasTranscript ? '需要字幕优先，当前已提供字幕/口播摘录。' : '需要。无字幕时应提取用户选择区间的相对完整音频。',
+      canExtractFrames: level4FrameCount > 0,
     };
   }
 
@@ -363,6 +433,8 @@ function getAnalysisBudget(clipType: ClipTypeId, startTime: number, endTime: num
     frameCount,
     reason,
     audioHint: null,
+    audioWindowStrategy,
+    needsFullAudioOrSubtitles,
     canExtractFrames: frameCount > 0,
   };
 }
@@ -904,6 +976,7 @@ export default function App() {
                   </label>
                   <label className="block">
                     <span className="text-sm font-medium text-slate-300">视频类型</span>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">当前原型用手动选择模拟平台侧标题、标签、分类和字幕判断。真实平台环境中，该判断应由平台元数据和模型自动完成。</p>
                     <select value={uploadedClipType} onChange={(event) => setUploadedClipType(event.target.value as ClipTypeId)} className={inputClasses}>
                       {clipTypes.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
                     </select>
@@ -934,15 +1007,23 @@ export default function App() {
                   </div>
                   <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
                     <div className="rounded-md border border-white/10 bg-slate-950/50 p-3">
-                      <dt className="text-slate-400">分析方式</dt>
-                      <dd className="mt-1 font-medium text-white">{analysisBudget.method}{analysisBudget.frameCount > 0 ? ` / 先抽 ${analysisBudget.frameCount} 帧` : ''}</dd>
+                      <dt className="text-slate-400">抽帧数量</dt>
+                      <dd className="mt-1 font-medium text-white">{analysisBudget.frameCount === 0 ? '0 帧' : `${analysisBudget.frameCount} 帧`}</dd>
                     </div>
                     <div className="rounded-md border border-white/10 bg-slate-950/50 p-3">
                       <dt className="text-slate-400">预计成本等级</dt>
                       <dd className="mt-1 font-medium text-white">{analysisBudget.cost}</dd>
                     </div>
                     <div className="rounded-md border border-white/10 bg-slate-950/50 p-3 sm:col-span-2">
-                      <dt className="text-slate-400">判断原因</dt>
+                      <dt className="text-slate-400">音频窗口策略</dt>
+                      <dd className="mt-1 leading-6 text-slate-200">{analysisBudget.audioWindowStrategy}</dd>
+                    </div>
+                    <div className="rounded-md border border-white/10 bg-slate-950/50 p-3 sm:col-span-2">
+                      <dt className="text-slate-400">是否需要完整音频/字幕</dt>
+                      <dd className="mt-1 leading-6 text-slate-200">{analysisBudget.needsFullAudioOrSubtitles}</dd>
+                    </div>
+                    <div className="rounded-md border border-white/10 bg-slate-950/50 p-3 sm:col-span-2">
+                      <dt className="text-slate-400">为什么选择该策略</dt>
                       <dd className="mt-1 leading-6 text-slate-200">{analysisBudget.reason}</dd>
                     </div>
                     {analysisBudget.audioHint ? (
@@ -950,6 +1031,9 @@ export default function App() {
                         {analysisBudget.audioHint}
                       </div>
                     ) : null}
+                    <div className="rounded-md border border-sky-300/25 bg-sky-300/[0.08] p-3 text-sky-100 sm:col-span-2">
+                      当前版本已设计音频窗口策略，但尚未接入音频转写模型。音频窗口将作为下一阶段接入能力。
+                    </div>
                   </dl>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
                     <button

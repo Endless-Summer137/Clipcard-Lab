@@ -11,6 +11,7 @@ Main repository: https://github.com/Endless-Summer137/Clipcard-Lab.git
 - Clip start/end selection with seconds inputs and sliders.
 - Analysis budget gate that chooses Level 0 / Level 1 / Level 2 / Level 3 / Level 4 before frame extraction.
 - Local canvas-based key-frame extraction for real videos, with 0 / 1 / 3 / 5 frame budgets.
+- Minimum necessary audio-window strategy for each card-generating budget level, with Level 4 reserved for audio/subtitle-led high-information clips.
 - Boundary prompts for clips that need manual description, subtitles, or future audio/visual model support.
 - Weak-assertion clip card generation based on user-entered title, description, transcript, video type, and ad candidate.
 - Local `localStorage` event logging.

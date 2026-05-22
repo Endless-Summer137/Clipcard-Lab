@@ -9,6 +9,7 @@
 - Added durable repository workflow rules in `WORKFLOW.md`.
 - Replaced the creator heatmap bar chart with a multi-metric “片段兴趣趋势图” line chart for card generation, saves, ad clicks, and optional share/delete/regeneration fields.
 - Added an analysis budget gate for real videos, including Level 0-4 budget display, cost hints, audio-dependency prompts, and local canvas key-frame extraction.
+- Updated the analysis budget gate so every card-generating level uses a minimum necessary audio-window strategy, while Level 4 now represents audio/subtitle-led high-information clips.
 
 ## Validation
 
@@ -17,6 +18,7 @@
 - In-app browser verification passed for upload-mode UI, light-card generation, heatmap visibility, and no console errors.
 - `npm.cmd run build` completed successfully after replacing the bar chart with the multi-metric line chart.
 - `npm.cmd run build` completed successfully after adding the analysis budget gate and key-frame extraction workflow.
+- `npm.cmd run build` completed successfully after revising Level 0-4 audio-window rules.
 
 ## Current Repository Agreement
 
