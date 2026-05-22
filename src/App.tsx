@@ -6,10 +6,13 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 
 type SourceMode = 'sample' | 'upload';
 type ScenarioId = 'food' | 'game' | 'lowInfo';
-type ClipTypeId = 'food' | 'game' | 'travel' | 'funny' | 'music' | 'lowInfo' | 'other';
+type ClipTypeId = 'food' | 'game' | 'travel' | 'funny' | 'music' | 'tutorial' | 'lowInfo' | 'other';
 type CardType = '消费意图卡' | '兴趣意图卡' | '低置信观察卡' | '轻卡片 / 不建议生成完整卡片';
 type GateStatus = '允许展示' | '限制展示' | '拒绝展示';
 type AdCandidateId = 'storeDeal' | 'gamingGear' | 'scenicAd' | 'longAd' | 'none';
+type BudgetLevel = 'Level 0' | 'Level 1' | 'Level 2' | 'Level 3' | 'Level 4';
+type AnalysisMethod = '不建议生成' | '1 帧' | '3 帧' | '5 帧' | '需要音频补充';
+type CostLevel = '无' | '低' | '中' | '较高' | '需要额外音频成本';
 
 interface Scenario {
   id: ScenarioId;
@@ -79,6 +82,26 @@ interface BuildCardInput {
   title: string;
   description: string;
   transcript: string;
+  isRealVideo: boolean;
+  hasVisualModel: boolean;
+  keyFrameCount: number;
+}
+
+interface AnalysisBudget {
+  level: BudgetLevel;
+  baseLevel: Exclude<BudgetLevel, 'Level 4'>;
+  method: AnalysisMethod;
+  cost: CostLevel;
+  frameCount: 0 | 1 | 3 | 5;
+  reason: string;
+  audioHint: string | null;
+  canExtractFrames: boolean;
+}
+
+interface KeyFrame {
+  id: string;
+  time: number;
+  dataUrl: string;
 }
 
 const STORAGE_KEY = 'clipcard-lab-events';
@@ -126,6 +149,7 @@ const clipTypes: ClipTypeOption[] = [
   { id: 'travel', label: '旅行风景' },
   { id: 'funny', label: '搞笑梗' },
   { id: 'music', label: '音乐舞蹈' },
+  { id: 'tutorial', label: '教程/知识' },
   { id: 'lowInfo', label: '低信息片段' },
   { id: 'other', label: '其他' },
 ];
@@ -237,6 +261,112 @@ function formatTime(seconds: number) {
   return mins + ':' + secs;
 }
 
+function hasManualClipInput(description: string, transcript: string) {
+  return Boolean(description.trim() || transcript.trim());
+}
+
+function hasVoiceOrNarrationCue(transcript: string) {
+  return /口播|解说|旁白|字幕|讲解|台词|声音|音乐|歌词|对话|教程|步骤|知识|说明/.test(transcript);
+}
+
+function getFrameTimes(startTime: number, endTime: number, frameCount: AnalysisBudget['frameCount']) {
+  const safeStart = Math.max(0, startTime);
+  const safeEnd = Math.max(safeStart, endTime);
+  const duration = Math.max(0, safeEnd - safeStart);
+
+  if (frameCount === 0) {
+    return [];
+  }
+
+  if (frameCount === 1) {
+    return [safeStart + duration / 2];
+  }
+
+  if (frameCount === 3) {
+    return [safeStart + Math.min(0.4, duration * 0.08), safeStart + duration / 2, safeEnd - Math.min(0.4, duration * 0.08)];
+  }
+
+  return [safeStart, safeStart + duration * 0.25, safeStart + duration * 0.5, safeStart + duration * 0.75, safeEnd];
+}
+
+function getAnalysisBudget(clipType: ClipTypeId, startTime: number, endTime: number, description: string, transcript: string): AnalysisBudget {
+  const clipDuration = Math.max(0, endTime - startTime);
+  const hasInput = hasManualClipInput(description, transcript);
+  const audioSensitive =
+    clipType === 'music' ||
+    clipType === 'funny' ||
+    clipType === 'tutorial' ||
+    (clipType === 'game' && hasVoiceOrNarrationCue(description + ' ' + transcript));
+
+  if (clipType === 'lowInfo' && !hasInput) {
+    return {
+      level: 'Level 0',
+      baseLevel: 'Level 0',
+      method: '不建议生成',
+      cost: '无',
+      frameCount: 0,
+      reason: '当前片段信息不足，不建议生成完整卡片。可以手动补充片段说明或字幕/口播摘录后再继续。',
+      audioHint: null,
+      canExtractFrames: false,
+    };
+  }
+
+  let baseLevel: AnalysisBudget['baseLevel'] = 'Level 2';
+  let method: AnalysisMethod = '3 帧';
+  let cost: CostLevel = '中';
+  let frameCount: AnalysisBudget['frameCount'] = 3;
+  let reason = '片段时长大于 3 秒且不超过 30 秒，使用 3 帧标准模式：起点附近 / 中点 / 终点附近。';
+
+  if (clipDuration <= 3) {
+    baseLevel = 'Level 1';
+    method = '1 帧';
+    cost = '低';
+    frameCount = 1;
+    reason = '片段时长小于等于 3 秒，适合“保存这一刻”，只抽取中点 1 张关键帧。';
+  } else if (clipDuration <= 30) {
+    baseLevel = 'Level 2';
+    method = '3 帧';
+    cost = '中';
+    frameCount = 3;
+  } else if (clipDuration <= 60) {
+    baseLevel = 'Level 3';
+    method = '5 帧';
+    cost = '较高';
+    frameCount = 5;
+    reason = '片段时长大于 30 秒且不超过 60 秒，使用 5 帧稳健模式：起点 / 25% / 50% / 75% / 终点。';
+  } else {
+    baseLevel = 'Level 3';
+    method = '5 帧';
+    cost = '较高';
+    frameCount = 5;
+    reason = '片段超过 60 秒，建议缩短测试范围；当前默认按 Level 3 抽取 5 帧，并提示较高成本。';
+  }
+
+  if (audioSensitive) {
+    return {
+      level: 'Level 4',
+      baseLevel,
+      method: '需要音频补充',
+      cost: '需要额外音频成本',
+      frameCount,
+      reason,
+      audioHint: '该类型片段可能依赖音频、口播或字幕，仅靠关键帧可能不足以生成可靠卡片。当前版本暂不转写音频，只显示提示。',
+      canExtractFrames: frameCount > 0,
+    };
+  }
+
+  return {
+    level: baseLevel,
+    baseLevel,
+    method,
+    cost,
+    frameCount,
+    reason,
+    audioHint: null,
+    canExtractFrames: frameCount > 0,
+  };
+}
+
 function mentionsTravelIntent(text: string) {
   return /地点|地址|城市|景区|门票|路线|出行|旅行|旅游|酒店|民宿|机场|高铁|海边|山|湖|公园|古镇|博物馆/.test(text);
 }
@@ -308,6 +438,7 @@ function buildCard(input: BuildCardInput): ClipCard {
   const contextText = (input.title + ' ' + input.description + ' ' + input.transcript).trim();
   const gate = getGate(input.clipType, input.adCandidate.id, contextText);
   const descriptionTooShort = input.description.trim().length < 12;
+  const hasInput = hasManualClipInput(input.description, input.transcript);
   const shouldUseLightCard = input.clipType === 'lowInfo' || descriptionTooShort;
   const clipTypeLabel = getClipTypeLabel(input.clipType);
   const base = {
@@ -321,6 +452,17 @@ function buildCard(input: BuildCardInput): ClipCard {
     gateReason: gate.reason,
     createdAt: new Date().toISOString(),
   };
+
+  if (input.isRealVideo && !input.hasVisualModel && !hasInput) {
+    const frameState = input.keyFrameCount > 0 ? '当前已提取关键帧' : '当前尚未提取关键帧';
+    return {
+      ...base,
+      cardType: '轻卡片 / 不建议生成完整卡片',
+      carefulSummary: frameState + '，但尚未接入视觉模型，因此无法自动理解画面内容。',
+      saveReason: '你可以先把这一刻作为定位点保存，用于后续补充片段说明或接入视觉识别接口后再生成完整卡片。',
+      basis: '当前版本不自动识别完整视频画面和声音。你可以补充片段说明，或在下一阶段接入视觉识别接口。',
+    };
+  }
 
   if (shouldUseLightCard) {
     return {
@@ -400,6 +542,9 @@ export default function App() {
   const [clipDescription, setClipDescription] = useState('');
   const [transcript, setTranscript] = useState('');
   const [uploadedClipType, setUploadedClipType] = useState<ClipTypeId>('food');
+  const [keyFrames, setKeyFrames] = useState<KeyFrame[]>([]);
+  const [frameError, setFrameError] = useState('');
+  const [isExtractingFrames, setIsExtractingFrames] = useState(false);
   const [visibleOptionalMetrics, setVisibleOptionalMetrics] = useState<Record<OptionalTrendMetric, boolean>>({
     shared: false,
     deleted: false,
@@ -418,6 +563,11 @@ export default function App() {
   const adCandidate = adCandidates.find((item) => item.id === adCandidateId)!;
   const gate = getGate(activeClipType, adCandidate.id, sourceLabel + ' ' + activeDescription + ' ' + activeTranscript);
   const GateIcon = statusIcons[gate.status];
+  const normalizedStart = Math.min(startTime, Math.max(0, durationMax - 1));
+  const normalizedEnd = Math.min(Math.max(endTime, normalizedStart + 1), durationMax);
+  const clipDuration = Math.max(0, normalizedEnd - normalizedStart);
+  const analysisBudget = getAnalysisBudget(activeClipType, normalizedStart, normalizedEnd, activeDescription, activeTranscript);
+  const hasRealVideoInput = hasManualClipInput(activeDescription, activeTranscript);
 
   useEffect(() => {
     setEvents(readEvents());
@@ -441,6 +591,13 @@ export default function App() {
       setEndTime(Math.min(startTime + 1, durationMax));
     }
   }, [durationMax, endTime, startTime]);
+
+  useEffect(() => {
+    if (sourceMode === 'upload') {
+      setKeyFrames([]);
+      setFrameError('');
+    }
+  }, [activeClipType, clipDescription, durationMax, endTime, sourceMode, startTime, transcript, videoUrl]);
 
   const trendData = useMemo(() => {
     const bins = Array.from({ length: Math.max(1, Math.ceil(durationMax / 10)) }, (_, index) => {
@@ -494,6 +651,8 @@ export default function App() {
     setPlaybackTime(0);
     setStartTime(0);
     setEndTime(10);
+    setKeyFrames([]);
+    setFrameError('');
     setCurrentCard(null);
   }
 
@@ -503,6 +662,76 @@ export default function App() {
       videoRef.current.currentTime = nextTime;
     }
     setPlaybackTime(nextTime);
+  }
+
+  async function captureKeyFrames() {
+    const video = videoRef.current;
+    if (!video || !videoUrl) {
+      setFrameError('请先上传本地 mp4/webm 视频。');
+      return;
+    }
+
+    if (!analysisBudget.canExtractFrames || analysisBudget.frameCount === 0) {
+      setKeyFrames([]);
+      setFrameError('当前预算等级不建议抽帧。你可以手动补充说明后再继续。');
+      return;
+    }
+
+    setIsExtractingFrames(true);
+    setFrameError('');
+
+    const originalTime = video.currentTime;
+    const frameTimes = getFrameTimes(normalizedStart, normalizedEnd, analysisBudget.frameCount);
+    const canvas = document.createElement('canvas');
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 360;
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+
+    if (!context) {
+      setFrameError('浏览器无法创建 canvas 上下文，暂时不能抽取关键帧。');
+      setIsExtractingFrames(false);
+      return;
+    }
+
+    try {
+      const frames: KeyFrame[] = [];
+      for (const time of frameTimes) {
+        await new Promise<void>((resolve, reject) => {
+          const targetTime = Math.min(Math.max(0, time), durationMax);
+          if (Math.abs(video.currentTime - targetTime) < 0.05) {
+            requestAnimationFrame(() => resolve());
+            return;
+          }
+          const timeoutId = window.setTimeout(() => {
+            video.removeEventListener('seeked', handleSeeked);
+            reject(new Error('关键帧定位超时，请重新选择片段或视频。'));
+          }, 2500);
+          const handleSeeked = () => {
+            video.removeEventListener('seeked', handleSeeked);
+            window.clearTimeout(timeoutId);
+            resolve();
+          };
+          video.addEventListener('seeked', handleSeeked, { once: true });
+          video.currentTime = targetTime;
+        });
+        context.drawImage(video, 0, 0, width, height);
+        frames.push({
+          id: crypto.randomUUID(),
+          time,
+          dataUrl: canvas.toDataURL('image/jpeg', 0.78),
+        });
+      }
+
+      video.currentTime = originalTime;
+      setPlaybackTime(originalTime);
+      setKeyFrames(frames);
+    } catch (error) {
+      setFrameError(error instanceof Error ? error.message : '关键帧抽取失败，请重新尝试。');
+    } finally {
+      setIsExtractingFrames(false);
+    }
   }
 
   function saveMoment() {
@@ -517,6 +746,9 @@ export default function App() {
       title: sourceLabel,
       description: activeDescription,
       transcript: activeTranscript,
+      isRealVideo: sourceMode === 'upload',
+      hasVisualModel: false,
+      keyFrameCount: keyFrames.length,
     });
     const event: ClipEvent = {
       id: card.id,
@@ -583,6 +815,7 @@ export default function App() {
         </header>
 
         <div className="rounded-lg border border-amber-300/25 bg-amber-300/[0.08] p-4 text-sm leading-6 text-amber-100">当前版本不自动识别完整视频画面和声音，先通过用户输入的字幕/说明验证片段卡机制。</div>
+        <div className="rounded-lg border border-teal-300/25 bg-teal-300/[0.07] p-4 text-sm leading-6 text-teal-100">当前版本正在验证：不同片段应采用不同分析预算，而不是对所有视频进行高成本统一分析。</div>
 
         <section className="grid gap-5 xl:grid-cols-[1.05fr_0.95fr]">
           <div className="rounded-lg border border-white/10 bg-slate-950/70 p-4 shadow-2xl shadow-black/20 md:p-5">
@@ -690,6 +923,56 @@ export default function App() {
                     </select>
                   </label>
                 </div>
+
+                <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h3 className="text-base font-semibold text-white">分析预算闸门</h3>
+                      <p className="mt-1 text-sm leading-6 text-slate-400">当前版本正在验证：不同片段应采用不同分析预算，而不是对所有视频进行高成本统一分析。</p>
+                    </div>
+                    <span className="rounded-md border border-teal-300/30 bg-teal-300/10 px-3 py-1 text-sm font-medium text-teal-100">{analysisBudget.level}</span>
+                  </div>
+                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                    <div className="rounded-md border border-white/10 bg-slate-950/50 p-3">
+                      <dt className="text-slate-400">分析方式</dt>
+                      <dd className="mt-1 font-medium text-white">{analysisBudget.method}{analysisBudget.frameCount > 0 ? ` / 先抽 ${analysisBudget.frameCount} 帧` : ''}</dd>
+                    </div>
+                    <div className="rounded-md border border-white/10 bg-slate-950/50 p-3">
+                      <dt className="text-slate-400">预计成本等级</dt>
+                      <dd className="mt-1 font-medium text-white">{analysisBudget.cost}</dd>
+                    </div>
+                    <div className="rounded-md border border-white/10 bg-slate-950/50 p-3 sm:col-span-2">
+                      <dt className="text-slate-400">判断原因</dt>
+                      <dd className="mt-1 leading-6 text-slate-200">{analysisBudget.reason}</dd>
+                    </div>
+                    {analysisBudget.audioHint ? (
+                      <div className="rounded-md border border-amber-300/25 bg-amber-300/[0.08] p-3 text-amber-100 sm:col-span-2">
+                        {analysisBudget.audioHint}
+                      </div>
+                    ) : null}
+                  </dl>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={captureKeyFrames}
+                      disabled={!videoUrl || isExtractingFrames || !analysisBudget.canExtractFrames}
+                      className="rounded-md border border-teal-300/40 px-3 py-2 text-sm font-medium text-teal-100 hover:bg-teal-300/10 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {isExtractingFrames ? '正在抽取关键帧' : `抽取 ${analysisBudget.frameCount} 张关键帧`}
+                    </button>
+                    {frameError ? <span className="text-sm text-rose-200">{frameError}</span> : null}
+                  </div>
+                  {keyFrames.length > 0 ? (
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {keyFrames.map((frame) => (
+                        <figure key={frame.id} className="overflow-hidden rounded-md border border-white/10 bg-black/30">
+                          <img src={frame.dataUrl} alt={`关键帧 ${formatTime(frame.time)}`} className="aspect-video w-full object-cover" />
+                          <figcaption className="px-3 py-2 text-xs text-slate-300">关键帧时间点：{formatTime(frame.time)}</figcaption>
+                        </figure>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             )}
 
@@ -737,6 +1020,22 @@ export default function App() {
               <br />
               <span className="font-medium text-slate-200">广告候选：</span>
               {adCandidate.description}
+              {sourceMode === 'upload' ? (
+                <>
+                  <br />
+                  <span className="font-medium text-slate-200">真实视频关键帧：</span>
+                  {keyFrames.length > 0 ? `已抽取 ${keyFrames.length} 张，用于片段定位与后续视觉识别准备。` : '尚未抽取。'}
+                  <br />
+                  <span className="font-medium text-slate-200">用户手动补充说明：</span>
+                  {activeDescription.trim() || '未填写'}
+                  <br />
+                  <span className="font-medium text-slate-200">字幕/口播摘录：</span>
+                  {activeTranscript.trim() || '未填写'}
+                  <br />
+                  <span className="font-medium text-slate-200">视觉模型接入：</span>
+                  当前版本未接入视觉模型，不会自动理解画面内容。
+                </>
+              ) : null}
             </div>
 
             {currentCard ? (
@@ -749,6 +1048,11 @@ export default function App() {
                   </div>
                   <span className="rounded-md border border-white/10 bg-black/20 px-3 py-1 text-sm text-slate-300">{formatTime(currentCard.startTime)} - {formatTime(currentCard.endTime)}</span>
                 </div>
+                {sourceMode === 'upload' && hasRealVideoInput ? (
+                  <div className="mt-4 rounded-md border border-sky-300/25 bg-sky-300/[0.08] p-3 text-sm leading-6 text-sky-100">
+                    本卡片结合用户补充说明生成，关键帧仅作为片段定位与后续视觉识别准备。
+                  </div>
+                ) : null}
                 <dl className="mt-4 grid gap-4 text-sm leading-6">
                   <div><dt className="font-medium text-slate-200">谨慎总结</dt><dd className="mt-1 text-slate-400">{currentCard.carefulSummary}</dd></div>
                   <div><dt className="font-medium text-slate-200">保存理由</dt><dd className="mt-1 text-slate-400">{currentCard.saveReason}</dd></div>

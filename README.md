@@ -9,6 +9,9 @@ Main repository: https://github.com/Endless-Summer137/Clipcard-Lab.git
 - Sample clip scenarios: 美食探店, 游戏高光, 低信息片段.
 - Real video test mode for local `mp4` / `webm` uploads.
 - Clip start/end selection with seconds inputs and sliders.
+- Analysis budget gate that chooses Level 0 / Level 1 / Level 2 / Level 3 / Level 4 before frame extraction.
+- Local canvas-based key-frame extraction for real videos, with 0 / 1 / 3 / 5 frame budgets.
+- Boundary prompts for clips that need manual description, subtitles, or future audio/visual model support.
 - Weak-assertion clip card generation based on user-entered title, description, transcript, video type, and ad candidate.
 - Local `localStorage` event logging.
 - Multi-metric 10-second trend buckets with `recharts`, including card generation, saves, and simulated ad clicks.
