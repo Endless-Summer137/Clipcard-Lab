@@ -18,9 +18,22 @@ The app separates shared mechanism logic from page-level demos:
 Page responsibilities are intentionally split:
 
 - `DemoFeedPage`: user-facing short-video feed demo. It calls the core modules and shows the generated card result, not the internal gates.
+- `ProfilePage`: short-video-style personal homepage with creator-center and card entrances.
 - `CreatorCenter`: reads stored cards/events and shows creator-facing trend summaries.
 - `InternalLab`: shows budget/ad/card-engine internals for explanation and review.
 - `MyCardsPage` and `ClipbookPage`: placeholders for future card library and clipbook flows.
+
+## Page URLs
+
+- `/?page=demo`: clean short-video feed demo.
+- `/?page=profile`: personal homepage demo.
+- `/?page=creator`: creator center.
+- `/?page=cards`: my cards.
+- `/?page=clipbook`: card clipbook.
+- `/?page=admin&dev=1`: hidden demo-material configuration page.
+- `/?page=internal&dev=1`: internal mechanism lab.
+
+Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&dev=1`; `Esc` returns from admin config to `?page=demo&dev=1`.
 
 ## What It Tests
 

@@ -1,5 +1,5 @@
 import { Bookmark, Heart, MessageCircle, Search, Share2, Star } from 'lucide-react';
-import type { ChangeEvent, TouchEvent, WheelEvent } from 'react';
+import type { TouchEvent, WheelEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { runAdGate } from '../core/adGate';
 import { runBudgetGate } from '../core/budgetGate';
@@ -7,12 +7,15 @@ import { generateSegmentCard } from '../core/cardEngine';
 import { saveCard } from '../core/cardStore';
 import { recordEvent } from '../core/eventStore';
 import type { SegmentCard } from '../core/types';
-import { defaultDemoVideos, parseTags, readDemoConfig, readFileAsDataUrl, saveDemoConfig, type DemoVideoConfig } from './demoData';
+import { defaultDemoVideos, readDemoConfig, type DemoVideoConfig } from './demoData';
 
-export function DemoFeedPage() {
+interface DemoFeedPageProps {
+  onOpenProfile?: () => void;
+}
+
+export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
   const [videos, setVideos] = useState<DemoVideoConfig[]>(() => readDemoConfig());
   const [activeIndex, setActiveIndex] = useState(0);
-  const [configMode, setConfigMode] = useState(false);
   const [activeCard, setActiveCard] = useState<SegmentCard | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [showSaveHint, setShowSaveHint] = useState(true);
@@ -20,18 +23,7 @@ export function DemoFeedPage() {
   const video = videos[activeIndex] ?? defaultDemoVideos[0];
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key.toLowerCase() === 'u') {
-        event.preventDefault();
-        setConfigMode((value) => !value);
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  useEffect(() => {
+    setVideos(readDemoConfig());
     const timer = window.setTimeout(() => setShowSaveHint(false), 1200);
     return () => window.clearTimeout(timer);
   }, []);
@@ -46,20 +38,6 @@ export function DemoFeedPage() {
   function switchVideo(direction: 1 | -1) {
     setActiveCard(null);
     setActiveIndex((index) => (index + direction + 3) % 3);
-  }
-
-  function updateVideo(index: number, patch: Partial<DemoVideoConfig>) {
-    setVideos((current) => {
-      const next = current.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
-      saveDemoConfig(next);
-      return next;
-    });
-  }
-
-  async function onVideoUpload(index: number, event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    updateVideo(index, { videoDataUrl: await readFileAsDataUrl(file) });
   }
 
   function buildCardFromVideo() {
@@ -194,7 +172,11 @@ export function DemoFeedPage() {
           <p className="mt-2 max-w-[78%] text-sm leading-6 text-white/82">{video.videoDescription}</p>
         </section>
         <footer className="absolute bottom-0 left-0 right-0 z-20 grid grid-cols-5 border-t border-white/10 bg-black/35 px-2 py-3 text-center text-xs text-white/70 backdrop-blur">
-          <span className="font-semibold text-white">首页</span><span>朋友</span><span className="text-lg leading-none text-white">+</span><span>消息</span><span>我</span>
+          <button type="button" className="font-semibold text-white">首页</button>
+          <button type="button">朋友</button>
+          <button type="button" className="text-lg leading-none text-white">+</button>
+          <button type="button">消息</button>
+          <button type="button" onClick={onOpenProfile}>我</button>
         </footer>
         <div className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-2">
           {[0, 1, 2].map((index) => <button key={index} type="button" onClick={() => { setActiveCard(null); setActiveIndex(index); }} className={'h-2 w-2 rounded-full ' + (activeIndex === index ? 'bg-white' : 'bg-white/35')} aria-label={`切换视频 ${index + 1}`} />)}
@@ -222,31 +204,6 @@ export function DemoFeedPage() {
             </div>
           </article>
         </div>
-      ) : null}
-      {configMode ? (
-        <section className="absolute inset-x-0 bottom-0 z-30 mx-auto max-h-[72vh] max-w-5xl overflow-auto rounded-t-2xl border border-white/10 bg-slate-950/95 p-5 text-slate-100 shadow-2xl backdrop-blur">
-          <h2 className="text-lg font-semibold">隐藏原始素材配置</h2>
-          <p className="mt-1 text-sm text-slate-400">再次按 Ctrl+U 退出。这里只能配置原始输入材料，最终卡片由 cardEngine 生成。</p>
-          <div className="mt-5 grid gap-4 lg:grid-cols-3">
-            {videos.map((item, index) => (
-              <div key={item.videoId || index} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
-                <h3 className="font-semibold">演示视频 {index + 1}</h3>
-                <label className="mt-3 block text-sm">视频文件<input type="file" accept="video/mp4,video/webm" onChange={(event) => onVideoUpload(index, event)} className="mt-2 w-full text-sm" /></label>
-                <label className="mt-3 block text-sm">videoId<input value={item.videoId} onChange={(event) => updateVideo(index, { videoId: event.target.value })} className="mt-2 w-full rounded bg-slate-900 p-2" /></label>
-                <label className="mt-3 block text-sm">videoTitle<input value={item.videoTitle} onChange={(event) => updateVideo(index, { videoTitle: event.target.value })} className="mt-2 w-full rounded bg-slate-900 p-2" /></label>
-                <label className="mt-3 block text-sm">videoDescription<textarea value={item.videoDescription} onChange={(event) => updateVideo(index, { videoDescription: event.target.value })} className="mt-2 w-full rounded bg-slate-900 p-2" /></label>
-                <label className="mt-3 block text-sm">tags<input value={item.tags.join(',')} onChange={(event) => updateVideo(index, { tags: parseTags(event.target.value) })} className="mt-2 w-full rounded bg-slate-900 p-2" /></label>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <label className="block text-sm">start<input type="number" value={item.defaultSegmentStart} onChange={(event) => updateVideo(index, { defaultSegmentStart: Number(event.target.value) })} className="mt-2 w-full rounded bg-slate-900 p-2" /></label>
-                  <label className="block text-sm">end<input type="number" value={item.defaultSegmentEnd} onChange={(event) => updateVideo(index, { defaultSegmentEnd: Number(event.target.value) })} className="mt-2 w-full rounded bg-slate-900 p-2" /></label>
-                </div>
-                <label className="mt-3 block text-sm">transcriptExcerpt<textarea value={item.transcriptExcerpt} onChange={(event) => updateVideo(index, { transcriptExcerpt: event.target.value })} className="mt-2 w-full rounded bg-slate-900 p-2" /></label>
-                <label className="mt-3 block text-sm">segmentNote<textarea value={item.segmentNote} onChange={(event) => updateVideo(index, { segmentNote: event.target.value })} className="mt-2 w-full rounded bg-slate-900 p-2" /></label>
-                <label className="mt-3 block text-sm">adCandidate<input value={item.adCandidate} onChange={(event) => updateVideo(index, { adCandidate: event.target.value })} className="mt-2 w-full rounded bg-slate-900 p-2" /></label>
-              </div>
-            ))}
-          </div>
-        </section>
       ) : null}
     </main>
   );
