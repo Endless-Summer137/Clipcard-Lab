@@ -1,4 +1,4 @@
-import type { AnalyzeFramesRequest, VisionAnalysis } from '../../core/types';
+import type { AnalyzeFramesRequest, VisionAnalysis, VisionErrorType, VisionProvider } from '../../core/types';
 import type { ServerEnv } from '../env';
 
 declare const fetch: (input: string, init?: {
@@ -10,6 +10,116 @@ declare const fetch: (input: string, init?: {
   status: number;
   text: () => Promise<string>;
 }>;
+
+export interface ProviderAnalyzeOptions {
+  maxAttempts?: number;
+}
+
+export interface ProviderAnalyzeResult {
+  visionAnalysis: VisionAnalysis;
+  provider: VisionProvider;
+  requestedModel?: string;
+  actualModel?: string;
+  failedModel?: string;
+  errorType?: VisionErrorType;
+  errorCode?: string;
+  fallbackReason?: string;
+  fallbackUsed: boolean;
+  retryCount: number;
+  attemptedCallCount: number;
+  successCallCount: number;
+}
+
+export class VisionProviderError extends Error {
+  status?: number;
+  code?: string;
+  errorType: VisionErrorType;
+  raw?: string;
+  model?: string;
+  requestedModel?: string;
+  fallbackReason?: string;
+  fallbackUsed?: boolean;
+  retryCount?: number;
+  attemptedCallCount?: number;
+  successCallCount?: number;
+
+  constructor(input: {
+    message: string;
+    status?: number;
+    code?: string;
+    errorType?: VisionErrorType;
+    raw?: string;
+    model?: string;
+    requestedModel?: string;
+    fallbackReason?: string;
+    fallbackUsed?: boolean;
+    retryCount?: number;
+    attemptedCallCount?: number;
+    successCallCount?: number;
+  }) {
+    super(input.message);
+    this.name = 'VisionProviderError';
+    this.status = input.status;
+    this.code = input.code;
+    this.errorType = input.errorType ?? 'provider_error';
+    this.raw = input.raw;
+    this.model = input.model;
+    this.requestedModel = input.requestedModel;
+    this.fallbackReason = input.fallbackReason;
+    this.fallbackUsed = input.fallbackUsed;
+    this.retryCount = input.retryCount;
+    this.attemptedCallCount = input.attemptedCallCount;
+    this.successCallCount = input.successCallCount;
+  }
+}
+
+export function isProviderOverloaded(error: unknown) {
+  if (error instanceof VisionProviderError) return error.errorType === 'provider_overloaded';
+  if (!(error instanceof Error)) return false;
+  return error.message.includes('429') || error.message.includes('1305') || error.message.includes('访问量过大');
+}
+
+export interface ProviderErrorDetails {
+  message: string;
+  errorType: VisionErrorType;
+  errorCode?: string;
+  failedModel?: string;
+  requestedModel?: string;
+  fallbackReason?: string;
+  fallbackUsed?: boolean;
+  retryCount?: number;
+  attemptedCallCount?: number;
+  successCallCount?: number;
+}
+
+export function getProviderErrorDetails(error: unknown): ProviderErrorDetails {
+  if (error instanceof VisionProviderError) {
+    return {
+      message: error.message,
+      errorType: error.errorType,
+      errorCode: error.code,
+      failedModel: error.model,
+      requestedModel: error.requestedModel,
+      fallbackReason: error.fallbackReason,
+      fallbackUsed: error.fallbackUsed,
+      retryCount: error.retryCount,
+      attemptedCallCount: error.attemptedCallCount,
+      successCallCount: error.successCallCount,
+    };
+  }
+
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      errorType: isProviderOverloaded(error) ? 'provider_overloaded' : 'provider_error',
+    };
+  }
+
+  return {
+    message: '视觉模型调用失败。',
+    errorType: 'unknown',
+  };
+}
 
 export function buildVisionPrompt(input: AnalyzeFramesRequest) {
   return [
@@ -71,7 +181,18 @@ export async function postVisionChatCompletion({
   });
 
   const raw = await response.text();
-  if (!response.ok) throw new Error(`视觉模型请求失败：${response.status} ${raw.slice(0, 200)}`);
+  if (!response.ok) {
+    const parsedError = parseProviderError(raw);
+    const errorType = classifyProviderError(response.status, parsedError.code, parsedError.message);
+    throw new VisionProviderError({
+      status: response.status,
+      code: parsedError.code,
+      errorType,
+      raw,
+      model,
+      message: `视觉模型请求失败：${response.status} ${raw.slice(0, 200)}`,
+    });
+  }
 
   const data = JSON.parse(raw) as {
     choices?: Array<{ message?: { content?: string } }>;
@@ -109,6 +230,30 @@ export function normalizeVisionAnalysis(value: Partial<VisionAnalysis>): VisionA
 
 export function getModel(env: ServerEnv, key: string, fallback: string) {
   return env[key]?.trim() || fallback;
+}
+
+function parseProviderError(raw: string) {
+  try {
+    const parsed = JSON.parse(raw) as {
+      error?: { code?: string | number; message?: string };
+      code?: string | number;
+      message?: string;
+    };
+    return {
+      code: parsed.error?.code !== undefined ? String(parsed.error.code) : parsed.code !== undefined ? String(parsed.code) : undefined,
+      message: parsed.error?.message ?? parsed.message ?? raw,
+    };
+  } catch {
+    return {
+      code: undefined,
+      message: raw,
+    };
+  }
+}
+
+export function classifyProviderError(status: number, code?: string, message = ''): VisionErrorType {
+  if (status === 429 || code === '1305' || message.includes('访问量过大')) return 'provider_overloaded';
+  return 'provider_error';
 }
 
 function extractJsonObject(content: string) {

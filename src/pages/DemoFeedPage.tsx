@@ -6,7 +6,7 @@ import { runBudgetGate } from '../core/budgetGate';
 import { generateSegmentCard } from '../core/cardEngine';
 import { saveCard } from '../core/cardStore';
 import { recordEvent } from '../core/eventStore';
-import type { BudgetResult, CardCoverSource, Keyframe, KeyframeSource, SegmentCard, SegmentSource, TriggerMode } from '../core/types';
+import type { AnalysisSource, BudgetResult, CardCoverSource, Keyframe, KeyframeSource, SegmentCard, SegmentSource, TriggerMode } from '../core/types';
 import { createVideoObjectUrl } from '../core/videoBlobStore';
 import { captureCurrentFrame, captureFrameAt, captureKeyframes } from '../core/videoFrameCapture';
 import { analyzeFramesForCard } from '../core/visionAnalysisClient';
@@ -520,7 +520,11 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
           keyframes,
         })
         : { ok: false, error: '没有可分析的关键帧。' };
-      const analysisSource = visionResponse.ok && visionResponse.visionAnalysis ? 'vision_api' as const : 'rule_fallback' as const;
+      const analysisSource: AnalysisSource = visionResponse.ok && visionResponse.visionAnalysis
+        ? visionResponse.debug?.actualProvider === 'mock' || visionResponse.fallback
+          ? 'mock_vision_fallback'
+          : 'vision_api'
+        : 'rule_fallback';
       const adDecision = runAdGate({
         videoId: video.videoId,
         tags: video.tags,
@@ -578,6 +582,11 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
           visionProvider: visionResponse.provider,
           visionFallback: !visionResponse.ok || Boolean(visionResponse.fallback),
           visionContentType: visionResponse.visionAnalysis?.contentType,
+          visionErrorType: visionResponse.debug?.errorType,
+          visionErrorCode: visionResponse.debug?.errorCode,
+          visionRequestedModel: visionResponse.debug?.requestedModel,
+          visionActualModel: visionResponse.debug?.actualModel,
+          visionRetryCount: visionResponse.debug?.retryCount,
           hasCoverImage: Boolean(card.coverImage),
         },
       });
@@ -592,7 +601,11 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
         });
       }
       setActiveCard(card);
-      if (card.activityName) setCardFeedback(`已生成「${card.activityName}」活动卡片`);
+      if (analysisSource === 'mock_vision_fallback' || analysisSource === 'rule_fallback') {
+        setCardFeedback('当前已生成基础卡片，稍后可重新分析。');
+      } else if (card.activityName) {
+        setCardFeedback(`已生成「${card.activityName}」活动卡片`);
+      }
     } finally {
       setIsGeneratingCard(false);
     }

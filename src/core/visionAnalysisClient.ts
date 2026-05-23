@@ -17,7 +17,7 @@ export async function analyzeFramesForCard(input: Omit<AnalyzeFramesRequest, 'ke
     });
 
     const payload = await response.json() as AnalyzeFramesResponse;
-    if (!response.ok) return { ok: false, provider: payload.provider, error: payload.error ?? '视觉分析接口请求失败。' };
+    if (!response.ok) return { ...payload, ok: false, provider: payload.provider, error: payload.error ?? '视觉分析接口请求失败。' };
     return payload;
   } catch {
     return { ok: false, provider: 'mock', error: '视觉分析接口不可用。' };

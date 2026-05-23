@@ -38,6 +38,10 @@ function getEvidenceNote(input: CardEngineInput, fallback: string) {
     return '当前未完成视觉分析，卡片基于标题、活动信息和片段时间生成。';
   }
 
+  if (input.analysisSource === 'mock_vision_fallback') {
+    return '视觉模型当前限流，已使用本地兜底生成；卡片可能不包含完整画面理解。';
+  }
+
   return fallback;
 }
 

@@ -1,6 +1,7 @@
 import type { AnalyzeFramesRequest, AnalyzeFramesResponse, Keyframe, VisionAnalysis, VisionProvider } from '../core/types';
 import { getServerEnv } from './env';
 import { analyzeFrames, analyzeFramesWithMock, getVisionProvider, hasProviderKey } from './visionProviders';
+import { getModel, getProviderErrorDetails } from './visionProviders/common';
 
 declare const console: {
   info: (message?: unknown, ...optionalParams: unknown[]) => void;
@@ -13,6 +14,8 @@ interface VisionApiStatus {
   configuredProvider: VisionProvider;
   provider: VisionProvider;
   todayCallCount: number;
+  attemptedCallCount: number;
+  successCallCount: number;
   fallback: boolean;
   recentVisionAnalysis?: VisionAnalysis;
   recentKeyframes?: Keyframe[];
@@ -22,6 +25,7 @@ interface VisionApiStatus {
 
 let usageDate = getDateKey();
 let realCallCount = 0;
+let realSuccessCount = 0;
 let recentStatus: VisionApiStatus | null = null;
 let hasLoggedEnvDiagnostics = false;
 
@@ -48,7 +52,16 @@ export function createAnalyzeFramesMiddleware() {
         const status = getStatus();
         const debug = createDebug(status.provider, message);
         recentStatus = { ...status, fallback: true, error: message, debug };
-        writeJson(response, 500, { ok: false, provider: status.provider, error: message, fallback: true, todayCallCount: status.todayCallCount, debug } satisfies AnalyzeFramesResponse);
+        writeJson(response, 500, {
+          ok: false,
+          provider: status.provider,
+          error: message,
+          fallback: true,
+          todayCallCount: status.todayCallCount,
+          attemptedCallCount: status.attemptedCallCount,
+          successCallCount: status.successCallCount,
+          debug,
+        } satisfies AnalyzeFramesResponse);
       });
   };
 }
@@ -59,15 +72,21 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
   const configuredProvider = getVisionProvider(env);
   const input = sanitizeRequest(body);
   const provider = configuredProvider;
-  const debug = createDebug(provider);
 
   if (provider !== 'mock') {
     if (!hasProviderKey(provider, env)) {
-      const missingKeyDebug = createDebug(provider, 'missing_api_key');
+      const missingKeyDebug = createDebug(provider, 'missing_api_key', {
+        requestedModel: getRequestedModel(provider, env),
+        errorType: 'missing_api_key',
+        fallbackUsed: true,
+        fallbackReason: '缺少后端 API key，前端将使用规则兜底。',
+      });
       recentStatus = {
         configuredProvider,
         provider,
         todayCallCount: realCallCount,
+        attemptedCallCount: realCallCount,
+        successCallCount: realSuccessCount,
         fallback: true,
         recentKeyframes: input.keyframes.map(toDebugKeyframe),
         error: 'missing_api_key',
@@ -79,21 +98,33 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
         error: 'missing_api_key',
         fallback: true,
         todayCallCount: realCallCount,
+        attemptedCallCount: realCallCount,
+        successCallCount: realSuccessCount,
         debug: missingKeyDebug,
       };
     }
 
     if (realCallCount >= REAL_DAILY_LIMIT) {
       const mockAnalysis = await analyzeFramesWithMock(input);
+      const limitDebug = createDebug(provider, 'daily_limit', {
+        requestedModel: getRequestedModel(provider, env),
+        actualProvider: 'mock',
+        actualModel: 'mock',
+        errorType: 'daily_limit',
+        fallbackUsed: true,
+        fallbackReason: '今日真实视觉 API 调用次数已达上限，已切到 mock。',
+      });
       recentStatus = {
         configuredProvider,
         provider: 'mock',
         todayCallCount: realCallCount,
+        attemptedCallCount: realCallCount,
+        successCallCount: realSuccessCount,
         fallback: true,
         recentVisionAnalysis: mockAnalysis,
         recentKeyframes: input.keyframes.map(toDebugKeyframe),
         error: '今日真实视觉 API 调用次数已达上限，已切到 mock。',
-        debug,
+        debug: limitDebug,
       };
       return {
         ok: true,
@@ -101,50 +132,93 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
         visionAnalysis: mockAnalysis,
         fallback: true,
         todayCallCount: realCallCount,
-        debug,
+        attemptedCallCount: realCallCount,
+        successCallCount: realSuccessCount,
+        debug: limitDebug,
       };
     }
-
-    realCallCount += 1;
   }
 
   try {
-    const visionAnalysis = await analyzeFrames(input, provider, env);
+    const result = await analyzeFrames(input, provider, env, {
+      maxAttempts: provider === 'mock' ? 0 : Math.max(0, REAL_DAILY_LIMIT - realCallCount),
+    });
+    if (provider !== 'mock') {
+      realCallCount += result.attemptedCallCount;
+      realSuccessCount += result.successCallCount;
+    }
+    const resultDebug = createDebug(provider, undefined, {
+      requestedModel: result.requestedModel,
+      actualProvider: result.provider,
+      actualModel: result.actualModel,
+      failedModel: result.failedModel,
+      errorType: result.errorType,
+      errorCode: result.errorCode,
+      fallbackReason: result.fallbackReason,
+      fallbackUsed: result.fallbackUsed,
+      retryCount: result.retryCount,
+    });
     recentStatus = {
       configuredProvider,
-      provider,
+      provider: result.provider,
       todayCallCount: realCallCount,
-      fallback: false,
-      recentVisionAnalysis: visionAnalysis,
+      attemptedCallCount: realCallCount,
+      successCallCount: realSuccessCount,
+      fallback: result.provider === 'mock',
+      recentVisionAnalysis: result.visionAnalysis,
       recentKeyframes: input.keyframes.map(toDebugKeyframe),
-      debug,
+      debug: resultDebug,
     };
     return {
       ok: true,
-      provider,
-      visionAnalysis,
-      fallback: false,
+      provider: result.provider,
+      visionAnalysis: result.visionAnalysis,
+      fallback: result.provider === 'mock',
       todayCallCount: realCallCount,
-      debug,
+      attemptedCallCount: realCallCount,
+      successCallCount: realSuccessCount,
+      debug: resultDebug,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : '视觉模型调用失败。';
-    const errorDebug = createDebug(provider, message);
+    const details = getProviderErrorDetails(error);
+    if (provider !== 'mock') {
+      realCallCount += details.attemptedCallCount ?? 0;
+      realSuccessCount += details.successCallCount ?? 0;
+    }
+    const mockAnalysis = await analyzeFramesWithMock(input);
+    const message = details.message;
+    const errorDebug = createDebug(provider, message, {
+      requestedModel: details.requestedModel ?? getRequestedModel(provider, env),
+      actualProvider: 'mock',
+      actualModel: 'mock',
+      failedModel: details.failedModel,
+      errorType: details.errorType,
+      errorCode: details.errorCode,
+      fallbackReason: details.fallbackReason ?? '真实视觉模型不可用，已切到本地 mock 兜底。',
+      fallbackUsed: true,
+      retryCount: details.retryCount ?? 0,
+    });
     recentStatus = {
       configuredProvider,
-      provider,
+      provider: 'mock',
       todayCallCount: realCallCount,
+      attemptedCallCount: realCallCount,
+      successCallCount: realSuccessCount,
       fallback: true,
+      recentVisionAnalysis: mockAnalysis,
       recentKeyframes: input.keyframes.map(toDebugKeyframe),
       error: message,
       debug: errorDebug,
     };
     return {
-      ok: false,
-      provider,
+      ok: true,
+      provider: 'mock',
+      visionAnalysis: mockAnalysis,
       error: message,
       fallback: true,
       todayCallCount: realCallCount,
+      attemptedCallCount: realCallCount,
+      successCallCount: realSuccessCount,
       debug: errorDebug,
     };
   }
@@ -197,8 +271,12 @@ function getStatus(): VisionApiStatus {
     configuredProvider,
     provider: configuredProvider,
     todayCallCount: realCallCount,
+    attemptedCallCount: realCallCount,
+    successCallCount: realSuccessCount,
     fallback: false,
-    debug: createDebug(configuredProvider),
+    debug: createDebug(configuredProvider, undefined, {
+      requestedModel: getRequestedModel(configuredProvider, getServerEnv()),
+    }),
   };
 }
 
@@ -213,6 +291,7 @@ function resetUsageIfNeeded() {
   if (today === usageDate) return;
   usageDate = today;
   realCallCount = 0;
+  realSuccessCount = 0;
 }
 
 function getDateKey() {
@@ -227,12 +306,17 @@ function toDebugKeyframe(frame: AnalyzeFramesRequest['keyframes'][number]): Keyf
   };
 }
 
-function createDebug(provider: VisionProvider, error?: string): AnalyzeFramesResponse['debug'] {
+function createDebug(provider: VisionProvider, error?: string, patch: Partial<NonNullable<AnalyzeFramesResponse['debug']>> = {}): AnalyzeFramesResponse['debug'] {
   const env = getServerEnv();
   return {
+    requestedProvider: provider,
+    actualProvider: patch.actualProvider ?? provider,
     provider,
     hasApiKey: hasProviderKey(provider, env),
+    fallbackUsed: false,
+    retryCount: 0,
     error,
+    ...patch,
   };
 }
 
@@ -244,4 +328,11 @@ function logVisionEnvDiagnostics() {
   const key = env.ZHIPU_API_KEY?.trim() ?? '';
   const keyPreview = key ? `${key.slice(0, 4)}****${key.slice(-4)}` : 'none';
   console.info(`[ClipCard vision] VISION_PROVIDER=${provider} hasZhipuKey=${Boolean(key)} zhipuKey=${keyPreview}`);
+}
+
+function getRequestedModel(provider: VisionProvider, env: Record<string, string | undefined>) {
+  if (provider === 'zhipu') return getModel(env, 'ZHIPU_MODEL', 'glm-4.6v-flash');
+  if (provider === 'aliyun') return getModel(env, 'ALIYUN_MODEL', 'qwen-vl-plus');
+  if (provider === 'openai') return getModel(env, 'OPENAI_MODEL', 'gpt-4o-mini');
+  return 'mock';
 }

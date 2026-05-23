@@ -4,17 +4,20 @@ import { getBudgetGateAcceptanceCases, runBudgetGate } from '../core/budgetGate'
 import { generateSegmentCard } from '../core/cardEngine';
 import { getCards } from '../core/cardStore';
 import { getEvents } from '../core/eventStore';
-import type { Keyframe, VisionAnalysis, VisionProvider } from '../core/types';
+import type { AnalyzeFramesResponse, Keyframe, VisionAnalysis, VisionProvider } from '../core/types';
 import { defaultDemoVideos } from './demoData';
 
 interface VisionApiStatus {
   configuredProvider?: VisionProvider;
   provider?: VisionProvider;
   todayCallCount?: number;
+  attemptedCallCount?: number;
+  successCallCount?: number;
   fallback?: boolean;
   recentVisionAnalysis?: VisionAnalysis;
   recentKeyframes?: Keyframe[];
   error?: string;
+  debug?: AnalyzeFramesResponse['debug'];
 }
 
 export function InternalLab() {
@@ -129,10 +132,18 @@ export function InternalLab() {
           <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4 lg:col-span-2">
             <h2 className="font-semibold">visionAnalysis 后端状态</h2>
             <div className="mt-3 grid gap-2 text-sm sm:grid-cols-4">
-              <Metric label="VISION_PROVIDER" value={visionStatus?.configuredProvider ?? visionStatus?.provider ?? 'zhipu'} />
-              <Metric label="actual provider" value={visionStatus?.provider ?? latestFrameCard?.analysisSource ?? 'unknown'} />
-              <Metric label="today calls" value={String(visionStatus?.todayCallCount ?? 0)} />
+              <Metric label="requested provider" value={visionStatus?.debug?.requestedProvider ?? visionStatus?.configuredProvider ?? 'zhipu'} />
+              <Metric label="actual provider" value={visionStatus?.debug?.actualProvider ?? visionStatus?.provider ?? latestFrameCard?.analysisSource ?? 'unknown'} />
+              <Metric label="today calls" value={String(visionStatus?.attemptedCallCount ?? visionStatus?.todayCallCount ?? 0)} />
+              <Metric label="success calls" value={String(visionStatus?.successCallCount ?? 0)} />
               <Metric label="fallback" value={String(Boolean(visionStatus?.fallback ?? latestFrameCard?.analysisSource === 'rule_fallback'))} />
+              <Metric label="requested model" value={visionStatus?.debug?.requestedModel ?? 'unknown'} />
+              <Metric label="actual model" value={visionStatus?.debug?.actualModel ?? 'unknown'} />
+              <Metric label="errorType" value={visionStatus?.debug?.errorType ?? 'none'} />
+              <Metric label="errorCode" value={visionStatus?.debug?.errorCode ?? 'none'} />
+              <Metric label="fallbackUsed" value={String(Boolean(visionStatus?.debug?.fallbackUsed))} />
+              <Metric label="retryCount" value={String(visionStatus?.debug?.retryCount ?? 0)} />
+              <Metric label="fallbackReason" value={visionStatus?.debug?.fallbackReason ?? 'none'} />
             </div>
             {visionStatus?.error ? <p className="mt-3 rounded bg-amber-500/10 p-3 text-sm text-amber-100">{visionStatus.error}</p> : null}
             {recentVisionAnalysis ? (

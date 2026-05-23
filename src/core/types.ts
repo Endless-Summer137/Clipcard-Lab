@@ -27,7 +27,14 @@ export interface Keyframe {
 }
 
 export type VisionProvider = 'zhipu' | 'aliyun' | 'openai' | 'mock';
-export type AnalysisSource = 'vision_api' | 'rule_fallback';
+export type AnalysisSource = 'vision_api' | 'rule_fallback' | 'mock_vision_fallback';
+export type VisionErrorType =
+  | 'missing_api_key'
+  | 'provider_overloaded'
+  | 'daily_limit'
+  | 'provider_error'
+  | 'network_error'
+  | 'unknown';
 
 export interface VisionAnalysis {
   confidence: 'low' | 'medium' | 'high';
@@ -63,9 +70,21 @@ export interface AnalyzeFramesResponse {
   error?: string;
   fallback?: boolean;
   todayCallCount?: number;
+  attemptedCallCount?: number;
+  successCallCount?: number;
   debug?: {
+    requestedProvider?: VisionProvider;
+    actualProvider?: VisionProvider;
     provider?: VisionProvider;
     hasApiKey: boolean;
+    requestedModel?: string;
+    actualModel?: string;
+    failedModel?: string;
+    errorType?: VisionErrorType;
+    errorCode?: string;
+    fallbackReason?: string;
+    fallbackUsed?: boolean;
+    retryCount?: number;
     error?: string;
   };
 }
