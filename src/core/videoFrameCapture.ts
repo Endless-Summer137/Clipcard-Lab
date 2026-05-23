@@ -9,6 +9,11 @@ export interface VideoFrameCaptureResult {
   frameTime: number;
 }
 
+export interface KeyframeCaptureRequest {
+  time: number;
+  source?: 'trigger_frame' | 'segment_start' | 'segment_midpoint' | 'segment_end' | 'sampled_frame';
+}
+
 const DEFAULT_MAX_WIDTH = 640;
 const DEFAULT_QUALITY = 0.72;
 const SEEK_TIMEOUT_MS = 900;
@@ -93,4 +98,33 @@ export async function captureVideoFrame(
       }
     }
   }
+}
+
+export function captureCurrentFrame(videoElement: HTMLVideoElement, options: Omit<VideoFrameCaptureOptions, 'time'> = {}) {
+  return captureVideoFrame(videoElement, options);
+}
+
+export function captureFrameAt(videoElement: HTMLVideoElement, time: number, options: Omit<VideoFrameCaptureOptions, 'time'> = {}) {
+  return captureVideoFrame(videoElement, { ...options, time });
+}
+
+export async function captureKeyframes(
+  videoElement: HTMLVideoElement,
+  frames: Array<number | KeyframeCaptureRequest>,
+  options: Omit<VideoFrameCaptureOptions, 'time'> = {},
+) {
+  const results: Array<{ time: number; image: string; source: NonNullable<KeyframeCaptureRequest['source']> }> = [];
+
+  for (const frame of frames) {
+    const request = typeof frame === 'number' ? { time: frame, source: 'sampled_frame' as const } : frame;
+    const captured = await captureFrameAt(videoElement, request.time, options);
+    if (!captured?.dataUrl) continue;
+    results.push({
+      time: captured.frameTime,
+      image: captured.dataUrl,
+      source: request.source ?? 'sampled_frame',
+    });
+  }
+
+  return results;
 }

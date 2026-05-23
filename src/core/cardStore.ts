@@ -45,6 +45,9 @@ function normalizeCard(card: SegmentCard): SegmentCard {
     sourceVideoUrl: card.sourceVideoUrl ?? getFallbackSourceUrl(card.videoId),
     coverFrameTime: card.coverFrameTime ?? card.coverFrame,
     coverSource: card.coverSource ?? (card.coverImage ? 'demo_placeholder' : 'none'),
+    keyframes: Array.isArray(card.keyframes)
+      ? card.keyframes.filter((frame) => frame?.image && Number.isFinite(frame.time))
+      : undefined,
     personalReflection: card.personalReflection?.text?.trim()
       ? {
         text: card.personalReflection.text.slice(0, 300),

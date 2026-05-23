@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { runAdGate } from '../core/adGate';
 import { getBudgetGateAcceptanceCases, runBudgetGate } from '../core/budgetGate';
 import { generateSegmentCard } from '../core/cardEngine';
+import { getCards } from '../core/cardStore';
 import { getEvents } from '../core/eventStore';
 import { defaultDemoVideos } from './demoData';
 
@@ -41,6 +42,8 @@ export function InternalLab() {
     adDecision,
   }), [adDecision, budget, video]);
   const events = getEvents();
+  const cards = getCards();
+  const latestFrameCard = cards.find((item) => item.keyframes?.length || item.budgetResult);
   const budgetCases = getBudgetGateAcceptanceCases();
 
   return (
@@ -65,6 +68,35 @@ export function InternalLab() {
             <pre className="mt-3 overflow-auto rounded bg-slate-900 p-3 text-xs">{JSON.stringify(card, null, 2)}</pre>
           </section>
           <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+            <h2 className="font-semibold">最近一次关键帧抽取</h2>
+            {latestFrameCard?.budgetResult ? (
+              <div className="mt-3 space-y-3">
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <Metric label="budget level" value={String(latestFrameCard.budgetResult.level)} />
+                  <Metric label="frameCount" value={String(latestFrameCard.budgetResult.frameCount)} />
+                  <Metric label="costLevel" value={latestFrameCard.budgetResult.costLevel} />
+                </div>
+                {latestFrameCard.keyframes?.length ? (
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {latestFrameCard.keyframes.map((frame) => (
+                      <figure key={`${frame.time}-${frame.source}`} className="overflow-hidden rounded-lg border border-white/10 bg-slate-900">
+                        <img src={frame.image} alt="" className="aspect-video w-full object-cover" />
+                        <figcaption className="px-2 py-1.5 text-xs text-slate-300">
+                          {formatSeconds(frame.time)} · {frame.source}
+                        </figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded bg-slate-900 p-3 text-xs text-slate-400">最近卡片没有保存关键帧，可能是视频截帧失败后走了 fallback。</p>
+                )}
+                <pre className="max-h-48 overflow-auto rounded bg-slate-900 p-3 text-xs">{JSON.stringify(latestFrameCard.budgetResult, null, 2)}</pre>
+              </div>
+            ) : (
+              <p className="mt-3 rounded bg-slate-900 p-3 text-sm text-slate-400">还没有生成带关键帧数据的卡片。</p>
+            )}
+          </section>
+          <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
             <h2 className="font-semibold">eventStore log</h2>
             <pre className="mt-3 max-h-96 overflow-auto rounded bg-slate-900 p-3 text-xs">{JSON.stringify(events, null, 2)}</pre>
           </section>
@@ -76,4 +108,20 @@ export function InternalLab() {
       </div>
     </main>
   );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded bg-slate-900 px-3 py-2">
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="mt-1 font-semibold text-slate-100">{value}</p>
+    </div>
+  );
+}
+
+function formatSeconds(seconds: number) {
+  const safeSeconds = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(safeSeconds / 60).toString().padStart(2, '0');
+  const remainder = (safeSeconds % 60).toString().padStart(2, '0');
+  return `${minutes}:${remainder}`;
 }

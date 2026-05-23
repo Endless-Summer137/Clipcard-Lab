@@ -37,6 +37,8 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
     coverFrame: input.coverFrame,
     coverFrameTime: input.coverFrameTime,
     coverSource: input.coverSource,
+    keyframes: input.keyframes,
+    budgetResult: input.budgetResult,
   };
   const activityFields = {
     activityId: input.activityId,
@@ -61,7 +63,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
       ...sourceFields,
       cardType: '待补充片段',
       title: '需要补充信息的片段',
-      summary: '仅凭当前信息还不足以判断明确意图，更像是一个需要补充说明的保存点。',
+      summary: '当前片段信息不足，已保存为待补充片段。',
       saveReason: '用户可能只是想暂存这一刻，等待后续补充片段说明、字幕、视觉识别或音频转写。',
       evidenceNote: '当前没有足够的片段说明或字幕/口播摘录；系统不能假装已经看懂视频画面。',
       adDecision: input.adDecision,

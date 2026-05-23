@@ -13,6 +13,19 @@ export type CardCoverSource =
   | 'generated_placeholder'
   | 'future_best_frame';
 
+export type KeyframeSource =
+  | 'trigger_frame'
+  | 'segment_start'
+  | 'segment_midpoint'
+  | 'segment_end'
+  | 'sampled_frame';
+
+export interface Keyframe {
+  time: number;
+  image: string;
+  source: KeyframeSource;
+}
+
 export type BudgetRoute =
   | 'visual_scene_first'
   | 'visual_step_first'
@@ -116,6 +129,7 @@ export interface CardEngineInput {
   coverFrame?: number;
   coverFrameTime?: number;
   coverSource?: CardCoverSource;
+  keyframes?: Keyframe[];
   activityId?: string;
   activityName?: string;
   activityCta?: string;
@@ -143,6 +157,8 @@ export interface SegmentCard {
   coverFrame?: number;
   coverFrameTime?: number;
   coverSource?: CardCoverSource;
+  keyframes?: Keyframe[];
+  budgetResult?: BudgetResult;
   activityId?: string;
   activityName?: string;
   activityCta?: string;
