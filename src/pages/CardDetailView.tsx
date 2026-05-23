@@ -149,7 +149,7 @@ function getAdLabel(card: SegmentCard) {
 
 export function CardThumbnail({ card, onClick, className = 'aspect-[3/4]' }: { card: SegmentCard; onClick?: () => void; className?: string }) {
   const theme = getCardTheme(card);
-  const showCover = Boolean(card.coverImage) && getCardKind(card) !== 'light';
+  const showCover = Boolean(card.coverImage);
   const cardClassName = `relative block w-full ${className} min-w-0 overflow-hidden rounded-2xl border text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${showCover ? 'border-white bg-stone-200' : theme.mini}`;
   const content = (
     <>

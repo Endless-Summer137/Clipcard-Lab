@@ -35,6 +35,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
   const coverFields = {
     coverImage: input.coverImage,
     coverFrame: input.coverFrame,
+    coverFrameTime: input.coverFrameTime,
     coverSource: input.coverSource,
   };
   const activityFields = {

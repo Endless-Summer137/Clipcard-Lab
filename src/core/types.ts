@@ -2,6 +2,16 @@ export type BudgetLevel = 0 | 1 | 2 | 3 | 4;
 
 export type TriggerMode = 'short_press' | 'long_press';
 export type SegmentSource = 'long_press_selection' | 'short_press_current_time' | 'default_demo_segment';
+export type CardCoverSource =
+  | 'trigger_frame'
+  | 'segment_start'
+  | 'segment_midpoint'
+  | 'demo_placeholder'
+  | 'none'
+  | 'current_frame'
+  | 'segment_start_frame'
+  | 'generated_placeholder'
+  | 'future_best_frame';
 
 export type BudgetRoute =
   | 'visual_scene_first'
@@ -104,7 +114,8 @@ export interface CardEngineInput {
   sourceVideoUrl?: string;
   coverImage?: string;
   coverFrame?: number;
-  coverSource?: 'current_frame' | 'segment_start_frame' | 'generated_placeholder' | 'future_best_frame';
+  coverFrameTime?: number;
+  coverSource?: CardCoverSource;
   activityId?: string;
   activityName?: string;
   activityCta?: string;
@@ -130,7 +141,8 @@ export interface SegmentCard {
   createdAt: string;
   coverImage?: string;
   coverFrame?: number;
-  coverSource?: 'current_frame' | 'segment_start_frame' | 'generated_placeholder' | 'future_best_frame';
+  coverFrameTime?: number;
+  coverSource?: CardCoverSource;
   activityId?: string;
   activityName?: string;
   activityCta?: string;

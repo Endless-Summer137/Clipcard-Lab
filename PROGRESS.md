@@ -71,6 +71,8 @@
 - Added source-video lists to saved clipbook detail pages and replaced clipbook one-click video publishing placeholders with a publish-preview modal that auto-lists all source clips.
 - Fixed saved clipbook list covers so they render template-style 9:16 clipbook previews instead of using the first placed card as the cover.
 - Split saved clipbook display previews from editing canvases: list/detail display hides empty slot frames, while edit mode still shows dashed slots and plus markers.
+- Added `videoFrameCapture` for canvas-based compressed frame capture from local uploaded videos, with card cover fallback through trigger frame, segment start, segment midpoint, and demo placeholder.
+- Updated generated cards to carry `coverImage`, `coverFrameTime`, and normalized `coverSource` values, and added cover metadata to `card_generated` events.
 
 ## Validation
 
@@ -120,6 +122,8 @@
 - Browser verification confirmed `CardDetailView` shows `@clipcard_food《深夜小店热汤》` with `00:08–00:13` and a source jump feedback, a saved clipbook detail shows the source list, and `一键发布为视频` opens a `发布活动手账视频` preview whose confirmation reports that source information will follow the video description.
 - `npm.cmd run build` completed successfully after separating saved clipbook covers from card thumbnails.
 - Browser verification confirmed the saved FPS clipbook list cover is a 9:16 template-style preview with no dashed slot frames, the saved detail preview has no empty dashed slots or plus buttons, and `继续编辑` returns to the dashed editable slot canvas.
+- `npm.cmd run build` completed successfully after adding real-video-frame cover capture and card cover metadata.
+- Browser verification confirmed the no-video demo fallback still generates a card, stores a compact `data:image/webp` cover, and renders that cover in the `我的卡片` thumbnail grid.
 
 ## Current Repository Agreement
 

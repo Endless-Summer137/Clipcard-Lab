@@ -40,6 +40,8 @@ function normalizeCard(card: SegmentCard): SegmentCard {
     sourceAuthor: card.sourceAuthor ?? getFallbackSourceAuthor(card.videoId),
     sourceVideoId: card.sourceVideoId ?? card.videoId,
     sourceVideoUrl: card.sourceVideoUrl ?? getFallbackSourceUrl(card.videoId),
+    coverFrameTime: card.coverFrameTime ?? card.coverFrame,
+    coverSource: card.coverSource ?? (card.coverImage ? 'demo_placeholder' : 'none'),
     personalReflection: card.personalReflection?.text?.trim()
       ? {
         text: card.personalReflection.text.slice(0, 300),
@@ -121,6 +123,7 @@ export function seedDemoCardsIfEmpty() {
       adLabel: '广告' as const,
     },
     createdAt,
+    coverSource: 'none' as const,
   };
 
   writeCards([

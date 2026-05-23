@@ -12,6 +12,7 @@ The app separates shared mechanism logic from page-level demos:
 - `src/core/adGate.ts`: ad-fit decision and mandatory ad disclosure metadata.
 - `src/core/cardEngine.ts`: local rule-based clip-card generation, with an input shape ready for future AI APIs.
 - `src/core/cardStore.ts`: local `localStorage` card persistence under `clipcard.cards`, with older-card and source-attribution normalization.
+- `src/core/videoFrameCapture.ts`: local canvas-based video-frame capture for compressed card cover images.
 - `src/core/eventStore.ts`: local `localStorage` user event logging.
 - `src/core/trendAnalytics.ts`: video-time bucket aggregation for creator trend charts.
 - `src/core/clipbookTemplateStore.ts`: local clipbook template images under `clipcard_clipbook_templates`, natural image size metadata, and percentage-based slot configuration.
@@ -54,6 +55,7 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 - Real video test mode for local `mp4` / `webm` uploads through the hidden demo-material configuration mode.
 - Demo default segment fields named `defaultSegmentStart` / `defaultSegmentEnd`, used only as fallback when no real user-triggered segment is available.
 - Short-press segment generation from the current video time when a real video is available, with `segmentSource` stored on every generated card.
+- Real uploaded-video frame capture for card covers, falling back to segment start, segment midpoint, or a compact demo placeholder when capture is unavailable.
 - Analysis budget gate that starts from trigger mode and segment duration, then revises the level with title, description, tags, transcript, platform signals, and visual signals.
 - Budget routes for scene-first, visual-step-first, transcript-first, OCR-first, motion/audio-first, and low-information clips.
 - Minimum necessary frame/audio strategy for Level 0-3, with OCR / transcript / visual-step needs exposed for the internal mechanism page.
@@ -64,7 +66,7 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 - Collectible ClipCard card visuals with themed mini cards, detail view source area, fixed ad disclosure area, and scrollable card content.
 - A light activity quick-preview card after tapping an activity capsule, with `加入活动手账`, share, and full-card actions.
 - A one-per-card personal reflection field in `CardDetailView`, editable and deletable by the user and persisted in `cardStore`.
-- Cover-style card thumbnails that use saved video-frame covers when available and fall back to soft light-card surfaces for low-information clips.
+- Cover-style card thumbnails that use saved video-frame or demo-placeholder covers when available and fall back to soft light-card surfaces for low-information clips.
 - A saved card clipbook flow with a `我的手账` home, template-style 9:16 clipbook covers, new-template entry, draft slot placement, `保存手账`, saved clipbook detail, source-video list, album/share placeholders, publish-preview modal, and disabled duplicate placement in the card picker.
 - Clipbook card selection reads the same `cardStore` source as the my-cards grid, so saved cards can be placed into any template slot.
 - Dev-only clipbook template image upload plus numeric `x/y/w/h` slot adjustment for configuring custom template layouts.

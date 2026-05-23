@@ -6,7 +6,8 @@ import { runBudgetGate } from '../core/budgetGate';
 import { generateSegmentCard } from '../core/cardEngine';
 import { saveCard } from '../core/cardStore';
 import { recordEvent } from '../core/eventStore';
-import type { SegmentCard, SegmentSource, TriggerMode } from '../core/types';
+import type { CardCoverSource, SegmentCard, SegmentSource, TriggerMode } from '../core/types';
+import { captureVideoFrame } from '../core/videoFrameCapture';
 import { CardDetailView, CardQuickPreview } from './CardDetailView';
 import { defaultDemoVideos, readDemoConfig, type DemoVideoConfig } from './demoData';
 
@@ -20,7 +21,7 @@ interface ResolvedSegment {
   segmentEnd: number;
   segmentSource: SegmentSource;
   triggerMode: TriggerMode;
-  coverFrame: number;
+  coverFrameTime: number;
 }
 
 interface ManualSegmentSelection {
@@ -58,47 +59,6 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
     setActiveIndex((index) => (index + direction + 3) % 3);
   }
 
-  function drawVideoFrame(videoElement: HTMLVideoElement) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 720;
-    canvas.height = 960;
-    const context = canvas.getContext('2d');
-    if (!context || !videoElement.videoWidth || !videoElement.videoHeight) return '';
-
-    const scale = Math.max(canvas.width / videoElement.videoWidth, canvas.height / videoElement.videoHeight);
-    const width = videoElement.videoWidth * scale;
-    const height = videoElement.videoHeight * scale;
-    const x = (canvas.width - width) / 2;
-    const y = (canvas.height - height) / 2;
-    context.drawImage(videoElement, x, y, width, height);
-    return canvas.toDataURL('image/jpeg', 0.82);
-  }
-
-  function seekVideo(videoElement: HTMLVideoElement, time: number) {
-    return new Promise<void>((resolve) => {
-      const duration = Number.isFinite(videoElement.duration) ? videoElement.duration : time;
-      const target = Math.max(0, Math.min(time, duration || time));
-      const finish = () => {
-        window.clearTimeout(timeout);
-        videoElement.removeEventListener('seeked', finish);
-        resolve();
-      };
-      const timeout = window.setTimeout(finish, 700);
-      videoElement.addEventListener('seeked', finish, { once: true });
-      videoElement.currentTime = target;
-    });
-  }
-
-  async function captureVideoFrameAt(videoElement: HTMLVideoElement, time: number) {
-    const originalTime = videoElement.currentTime;
-    const wasPaused = videoElement.paused;
-    await seekVideo(videoElement, time);
-    const image = drawVideoFrame(videoElement);
-    await seekVideo(videoElement, originalTime);
-    if (!wasPaused) void videoElement.play();
-    return image;
-  }
-
   function drawCoverText(context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number) {
     const chars = Array.from(text);
     let line = '';
@@ -122,8 +82,8 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
 
   function createGeneratedCover(frame: number) {
     const canvas = document.createElement('canvas');
-    canvas.width = 720;
-    canvas.height = 960;
+    canvas.width = 480;
+    canvas.height = 640;
     const context = canvas.getContext('2d');
     if (!context) return '';
 
@@ -141,19 +101,21 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.fillStyle = 'rgba(255,255,255,0.42)';
     context.beginPath();
-    context.arc(520, 180, 150, 0, Math.PI * 2);
+    context.arc(346, 120, 100, 0, Math.PI * 2);
     context.fill();
     context.fillStyle = 'rgba(255,255,255,0.32)';
     context.beginPath();
-    context.arc(150, 760, 210, 0, Math.PI * 2);
+    context.arc(100, 506, 140, 0, Math.PI * 2);
     context.fill();
     context.fillStyle = 'rgba(24,24,27,0.78)';
-    context.font = '600 42px sans-serif';
-    drawCoverText(context, video.videoTitle, 56, 650, 560);
-    context.font = '400 24px sans-serif';
+    context.font = '600 28px sans-serif';
+    drawCoverText(context, video.videoTitle, 38, 434, 374);
+    context.font = '400 16px sans-serif';
     context.fillStyle = 'rgba(24,24,27,0.56)';
-    context.fillText(`保存帧 ${formatSeconds(frame)}`, 56, 825);
-    return canvas.toDataURL('image/jpeg', 0.88);
+    context.fillText(`保存帧 ${formatSeconds(frame)}`, 38, 550);
+    const webp = canvas.toDataURL('image/webp', 0.72);
+    if (webp.startsWith('data:image/webp')) return webp;
+    return canvas.toDataURL('image/jpeg', 0.72);
   }
 
   function getDefaultSegment(triggerMode: TriggerMode): ResolvedSegment {
@@ -162,7 +124,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
       segmentEnd: video.defaultSegmentEnd,
       segmentSource: 'default_demo_segment',
       triggerMode,
-      coverFrame: video.defaultSegmentStart,
+      coverFrameTime: video.defaultSegmentStart,
     };
   }
 
@@ -175,7 +137,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
         segmentEnd: Math.max(selection.segmentStart + 0.1, selection.segmentEnd),
         segmentSource: 'long_press_selection',
         triggerMode,
-        coverFrame: Math.max(0, selection.segmentStart),
+        coverFrameTime: Math.max(0, selection.segmentStart),
       };
     }
 
@@ -195,28 +157,48 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
         segmentEnd,
         segmentSource: 'short_press_current_time',
         triggerMode,
-        coverFrame: currentTime,
+        coverFrameTime: currentTime,
       };
     }
 
     return getDefaultSegment(triggerMode);
   }
 
-  async function getCover(frame: number, coverMode: 'current_frame' | 'segment_start_frame') {
+  async function getCover(segment: ResolvedSegment) {
     const videoElement = videoElementRef.current;
+    const midpoint = segment.segmentStart + (segment.segmentEnd - segment.segmentStart) / 2;
+    const triggerFrameTime = segment.segmentSource === 'short_press_current_time' ? undefined : segment.coverFrameTime;
+    const captureAttempts: Array<{ source: CardCoverSource; time?: number }> = [
+      { source: 'trigger_frame', time: triggerFrameTime },
+      { source: 'segment_start', time: segment.segmentStart },
+      { source: 'segment_midpoint', time: midpoint },
+    ];
 
-    if (video.videoDataUrl && videoElement && videoElement.readyState >= 2 && videoElement.videoWidth) {
-      const coverImage = coverMode === 'segment_start_frame'
-        ? await captureVideoFrameAt(videoElement, frame)
-        : drawVideoFrame(videoElement);
-
-      if (coverImage) return { coverImage, coverFrame: frame, coverSource: coverMode };
+    if (video.videoDataUrl && videoElement && videoElement.readyState >= 1) {
+      for (const attempt of captureAttempts) {
+        const captured = await captureVideoFrame(videoElement, {
+          time: attempt.time,
+          maxWidth: 640,
+          quality: 0.72,
+        });
+        if (captured?.dataUrl) {
+          return {
+            coverImage: captured.dataUrl,
+            coverFrame: captured.frameTime,
+            coverFrameTime: captured.frameTime,
+            coverSource: attempt.source,
+          };
+        }
+      }
     }
 
+    const fallbackFrameTime = Number.isFinite(segment.coverFrameTime) ? segment.coverFrameTime : midpoint;
+    const fallbackImage = createGeneratedCover(fallbackFrameTime);
     return {
-      coverImage: createGeneratedCover(frame),
-      coverFrame: frame,
-      coverSource: 'generated_placeholder' as const,
+      coverImage: fallbackImage || undefined,
+      coverFrame: fallbackFrameTime,
+      coverFrameTime: fallbackFrameTime,
+      coverSource: fallbackImage ? 'demo_placeholder' as const : 'none' as const,
     };
   }
 
@@ -228,8 +210,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
 
     try {
       const segment = resolveSegment(triggerMode, selection);
-      const coverMode = segment.segmentSource === 'short_press_current_time' ? 'current_frame' : 'segment_start_frame';
-      const cover = await getCover(segment.coverFrame, coverMode);
+      const cover = await getCover(segment);
       const budgetResult = runBudgetGate({
         videoId: video.videoId,
         triggerMode: segment.triggerMode,
@@ -286,6 +267,9 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
           segmentSource: card.segmentSource,
           activityName: card.activityName,
           targetClipbookTemplate: card.targetClipbookTemplate,
+          coverSource: card.coverSource,
+          coverFrameTime: card.coverFrameTime,
+          hasCoverImage: Boolean(card.coverImage),
         },
       });
       if (adDecision.decision === 'allow') {
