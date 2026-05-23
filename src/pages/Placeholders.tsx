@@ -14,13 +14,15 @@ import { CardDetailView, CardThumbnail } from './CardDetailView';
 import { UserSubPageShell } from './UserSubPageShell';
 
 type NavigateTarget = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook' | 'dresser';
+type TemplateId = 'fps' | 'landscape' | 'blank';
 
 interface SimplePageProps {
-  onNavigate: (page: NavigateTarget, options?: { dev?: boolean }) => void;
+  onNavigate: (page: NavigateTarget, options?: { dev?: boolean; template?: TemplateId }) => void;
 }
 
 interface ClipbookPageProps extends SimplePageProps {
   devMode?: boolean;
+  templateId?: TemplateId;
 }
 
 export function MyCardsPage({ onNavigate }: SimplePageProps) {
@@ -52,11 +54,11 @@ export function MyCardsPage({ onNavigate }: SimplePageProps) {
   );
 }
 
-export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps) {
+export function ClipbookPage({ onNavigate, devMode = false, templateId }: ClipbookPageProps) {
   const { cards, refreshCards } = useClipCards();
   const [templates, setTemplates] = useState<ClipbookTemplate[]>(() => getTemplates());
-  const [selectedTemplateId, setSelectedTemplateId] = useState('fps');
-  const [placements, setPlacements] = useState(() => getClipbookPlacements('fps'));
+  const [selectedTemplateId, setSelectedTemplateId] = useState<TemplateId>(templateId ?? 'fps');
+  const [placements, setPlacements] = useState(() => getClipbookPlacements(templateId ?? 'fps'));
   const [selectingSlotId, setSelectingSlotId] = useState<string | null>(null);
   const [bookTitle, setBookTitle] = useState('我的空白书');
   const [feedback, setFeedback] = useState('');
@@ -65,9 +67,20 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
 
   const selectedTemplate = templates.find((item) => getTemplateId(item) === selectedTemplateId) ?? templates[0];
   const placedCardIds = new Set(placements.map((item) => item.cardId));
+  const isTemplateSelectionOnly = !templateId && !devMode;
+
+  useEffect(() => {
+    if (!templateId || templateId === selectedTemplateId) return;
+    setSelectedTemplateId(templateId);
+    setPlacements(getClipbookPlacements(templateId));
+    setSelectingSlotId(null);
+    setFeedback('');
+    setTemplateFeedback('');
+    setTemplateError('');
+  }, [selectedTemplateId, templateId]);
 
   function selectTemplate(templateId: string) {
-    setSelectedTemplateId(templateId);
+    setSelectedTemplateId(normalizeTemplateId(templateId));
     setPlacements(getClipbookPlacements(templateId));
     setSelectingSlotId(null);
     setFeedback('');
@@ -148,29 +161,35 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
 
   return (
     <UserSubPageShell
-      title="卡片手账"
-      subtitle="把保存的片段卡放进模板，生成可分享的卡片手账。"
+      title={isTemplateSelectionOnly ? '模板库' : selectedTemplate.name}
+      subtitle={isTemplateSelectionOnly ? '选择适合你的手账风格。' : '点击槽位，把保存过的片段卡放进当前模板。'}
       onBack={() => onNavigate('profile', { dev: false })}
     >
-      <section className="grid gap-2.5">
-        {templates.map((template) => (
-          <button
-            key={getTemplateId(template)}
-            type="button"
-            onClick={() => selectTemplate(getTemplateId(template))}
-            className={[
-              'rounded-2xl border px-3 py-3 text-left shadow-sm transition',
-              selectedTemplateId === getTemplateId(template) ? 'border-emerald-300 bg-white shadow-emerald-100' : 'border-white/70 bg-white/70 shadow-stone-200',
-            ].join(' ')}
-          >
-            <h2 className="font-semibold">{template.name}</h2>
-            <p className="mt-1 text-sm leading-6 text-stone-500">{getTemplateDescription(template)}</p>
-          </button>
-        ))}
-      </section>
+      {isTemplateSelectionOnly ? (
+        <TemplateSelectionPanel templates={templates} onSelect={(id) => onNavigate('clipbook', { dev: false, template: id })} />
+      ) : (
+        <>
+          {devMode ? (
+            <section className="grid gap-2.5">
+              {templates.map((template) => (
+                <button
+                  key={getTemplateId(template)}
+                  type="button"
+                  onClick={() => selectTemplate(getTemplateId(template))}
+                  className={[
+                    'rounded-2xl border px-3 py-3 text-left shadow-sm transition',
+                    selectedTemplateId === getTemplateId(template) ? 'border-emerald-300 bg-white shadow-emerald-100' : 'border-white/70 bg-white/70 shadow-stone-200',
+                  ].join(' ')}
+                >
+                  <h2 className="font-semibold">{template.name}</h2>
+                  <p className="mt-1 text-sm leading-6 text-stone-500">{getTemplateDescription(template)}</p>
+                </button>
+              ))}
+            </section>
+          ) : null}
 
-      {devMode ? (
-        <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
+          {devMode ? (
+            <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
           <h2 className="font-semibold">模板配置</h2>
           <label className="mt-3 block text-sm text-stone-600">
             上传模板图
@@ -201,10 +220,10 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
               </div>
             ))}
           </div>
-        </section>
-      ) : null}
+            </section>
+          ) : null}
 
-      <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
+          <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-semibold">当前手账</h2>
           {selectedTemplate.type === 'blank' ? (
@@ -240,7 +259,9 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
           </button>
         </div>
         {feedback ? <p className="mt-3 text-sm text-emerald-700">{feedback}</p> : null}
-      </section>
+          </section>
+        </>
+      )}
 
       {selectingSlotId ? (
         <CardPickerModal
@@ -253,6 +274,74 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
         />
       ) : null}
     </UserSubPageShell>
+  );
+}
+
+function TemplateSelectionPanel({ templates, onSelect }: { templates: ClipbookTemplate[]; onSelect: (templateId: TemplateId) => void }) {
+  return (
+    <section>
+      <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {templates.map((template) => (
+          <TemplateChoiceCard key={getTemplateId(template)} template={template} onClick={() => onSelect(getTemplateId(template))} />
+        ))}
+      </div>
+      <p className="mt-3 rounded-2xl bg-white/70 px-4 py-3 text-sm leading-6 text-stone-500 shadow-sm shadow-stone-200">
+        模板库只负责选择风格。选好模板后，就可以把保存过的片段卡放进槽位。
+      </p>
+    </section>
+  );
+}
+
+function TemplateChoiceCard({ template, onClick }: { template: ClipbookTemplate; onClick: () => void }) {
+  const backgroundImage = getTemplateBackgroundImage(template);
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative aspect-[9/16] w-[42%] min-w-[150px] max-w-[172px] shrink-0 overflow-hidden rounded-[22px] border border-white bg-white text-left shadow-sm shadow-stone-200"
+    >
+      {backgroundImage ? (
+        <img src={backgroundImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <TemplateChoiceBackground templateId={getTemplateId(template)} />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-stone-950/62 via-transparent to-white/10" />
+      {!backgroundImage ? <TemplateChoiceSlots template={template} /> : null}
+      <p className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-10 text-sm font-semibold leading-5 text-white drop-shadow">
+        {getTemplateDisplayName(template)}
+      </p>
+    </button>
+  );
+}
+
+function TemplateChoiceBackground({ templateId }: { templateId: TemplateId }) {
+  if (templateId === 'fps') {
+    return (
+      <div className="absolute inset-0 bg-[linear-gradient(145deg,#0f172a,#1e1b4b_55%,#083344)]">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(34,211,238,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.16)_1px,transparent_1px)] bg-[size:22px_22px]" />
+      </div>
+    );
+  }
+
+  if (templateId === 'landscape') {
+    return <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_76%,#bbf7d0_0_19%,transparent_20%),radial-gradient(circle_at_78%_72%,#bfdbfe_0_22%,transparent_23%),linear-gradient(#dff3f7,#fffaf0)]" />;
+  }
+
+  return <div className="absolute inset-0 border-l-[14px] border-stone-200 bg-[#fffaf0]" />;
+}
+
+function TemplateChoiceSlots({ template }: { template: ClipbookTemplate }) {
+  return (
+    <>
+      {template.slots.map((slot) => (
+        <span
+          key={getSlotId(slot)}
+          className="absolute rounded-md border border-dashed border-white/75 bg-white/16 shadow-sm"
+          style={{ left: `${slot.x}%`, top: `${slot.y}%`, width: `${slot.w}%`, height: `${slot.h}%` }}
+        />
+      ))}
+    </>
   );
 }
 
@@ -424,8 +513,13 @@ function getTemplateDescription(template: ClipbookTemplate) {
   return '米白纸张和轻微书脊感，可输入书名。';
 }
 
-function getTemplateId(template: ClipbookTemplate) {
-  return template.templateId ?? template.id;
+function normalizeTemplateId(value: string): TemplateId {
+  if (value === 'landscape' || value === 'blank') return value;
+  return 'fps';
+}
+
+function getTemplateId(template: ClipbookTemplate): TemplateId {
+  return normalizeTemplateId(template.templateId ?? template.id);
 }
 
 function getSlotId(slot: ClipbookSlot) {
@@ -434,6 +528,13 @@ function getSlotId(slot: ClipbookSlot) {
 
 function getTemplateBackgroundImage(template: ClipbookTemplate) {
   return template.backgroundImage ?? template.image;
+}
+
+function getTemplateDisplayName(template: ClipbookTemplate) {
+  const id = getTemplateId(template);
+  if (id === 'fps') return 'FPS 高光册';
+  if (id === 'landscape') return '风景灵感册';
+  return '空白书';
 }
 
 function getTemplateAspectRatio(template: ClipbookTemplate) {

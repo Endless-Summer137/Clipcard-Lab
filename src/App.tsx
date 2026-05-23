@@ -9,6 +9,7 @@ import { ProfilePage } from './pages/ProfilePage';
 
 type PageId = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook' | 'dresser';
 type PageParam = 'demo' | 'admin' | 'internal' | 'creator' | 'profile' | 'cards' | 'clipbook' | 'dresser';
+type TemplateParam = 'fps' | 'landscape' | 'blank';
 
 const pageParamToId: Record<PageParam, PageId> = {
   demo: 'demoFeed',
@@ -43,26 +44,34 @@ const devPages: Array<{ id: PageId; label: string; description: string }> = [
   { id: 'dresser', label: '卡片妆台', description: '贴纸和样式占位' },
 ];
 
+function normalizeTemplateParam(value: string | null): TemplateParam | undefined {
+  if (value === 'fps' || value === 'landscape' || value === 'blank') return value;
+  if (value === 'scenery') return 'landscape';
+  return undefined;
+}
+
 function readRoute() {
   const params = new URLSearchParams(window.location.search);
   const pageParam = params.get('page') as PageParam | null;
   return {
     page: pageParam && pageParam in pageParamToId ? pageParamToId[pageParam] : 'demoFeed',
     dev: params.get('dev') === '1',
+    templateId: normalizeTemplateParam(params.get('template')),
   };
 }
 
 export default function App() {
   const [route, setRoute] = useState(readRoute);
 
-  function navigate(page: PageId, options?: { dev?: boolean }) {
+  function navigate(page: PageId, options?: { dev?: boolean; template?: TemplateParam }) {
     const nextDev = options?.dev ?? route.dev;
     const params = new URLSearchParams();
     params.set('page', pageIdToParam[page]);
     if (nextDev) params.set('dev', '1');
+    if (page === 'clipbook' && options?.template) params.set('template', options.template);
     const nextUrl = `${window.location.pathname}?${params.toString()}`;
     window.history.pushState(null, '', nextUrl);
-    setRoute({ page, dev: nextDev });
+    setRoute({ page, dev: nextDev, templateId: page === 'clipbook' ? options?.template : undefined });
   }
 
   useEffect(() => {
@@ -100,7 +109,7 @@ export default function App() {
       case 'myCards':
         return <MyCardsPage onNavigate={navigate} />;
       case 'clipbook':
-        return <ClipbookPage onNavigate={navigate} devMode={route.dev} />;
+        return <ClipbookPage onNavigate={navigate} devMode={route.dev} templateId={route.templateId} />;
       case 'dresser':
         return <DresserPage onNavigate={navigate} />;
       case 'demoFeed':

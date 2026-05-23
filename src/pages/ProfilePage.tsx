@@ -1,16 +1,19 @@
 import { Gamepad2, Grid3X3, Lightbulb, Menu, Search, ShoppingCart, UserPlus, WalletCards } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
+import type { ClipbookTemplate } from '../core/clipbookTemplateStore';
+import { getTemplates } from '../core/clipbookTemplateStore';
 import type { SegmentCard } from '../core/types';
 import { useClipCards } from '../hooks/useClipCards';
 import { CardDetailView, CardThumbnail } from './CardDetailView';
 import { defaultDemoVideos, readDemoConfig } from './demoData';
 
 type NavigateTarget = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook' | 'dresser';
+type TemplateId = 'fps' | 'landscape' | 'blank';
 type ProfileTab = 'works' | 'daily' | 'favorites' | 'likes' | 'cards';
 
 interface ProfilePageProps {
-  onNavigate: (page: NavigateTarget, options?: { dev?: boolean }) => void;
+  onNavigate: (page: NavigateTarget, options?: { dev?: boolean; template?: TemplateId }) => void;
 }
 
 const tabs: Array<{ id: ProfileTab; label: string }> = [
@@ -19,12 +22,6 @@ const tabs: Array<{ id: ProfileTab; label: string }> = [
   { id: 'favorites', label: '收藏' },
   { id: 'likes', label: '喜欢' },
   { id: 'cards', label: '卡片' },
-];
-
-const templates = [
-  { title: 'FPS 高光册', tone: 'bg-slate-950 text-cyan-50 border-cyan-300/30' },
-  { title: '风景灵感册', tone: 'bg-[#e9f6ee] text-emerald-900 border-emerald-100' },
-  { title: '空白书', tone: 'bg-[#fffaf0] text-stone-800 border-stone-200' },
 ];
 
 export function ProfilePage({ onNavigate }: ProfilePageProps) {
@@ -156,9 +153,11 @@ function CardCenter({
   onOpenCard,
 }: {
   cards: SegmentCard[];
-  onNavigate: (page: NavigateTarget, options?: { dev?: boolean }) => void;
+  onNavigate: (page: NavigateTarget, options?: { dev?: boolean; template?: TemplateId }) => void;
   onOpenCard: (card: SegmentCard) => void;
 }) {
+  const templates = getTemplates();
+
   return (
     <div className="space-y-5 px-3 py-4">
       <section className="grid gap-3">
@@ -172,16 +171,13 @@ function CardCenter({
           <h2 className="text-base font-semibold">模板库</h2>
           <span className="text-xs text-stone-500">选择适合你的手账风格</span>
         </div>
-        <div className="mt-3 grid grid-cols-3 gap-3">
+        <div className="-mx-3 mt-3 flex gap-3 overflow-x-auto px-3 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {templates.map((template) => (
-            <article key={template.title} className={`aspect-[4/5] rounded-2xl border p-3 shadow-sm ${template.tone}`}>
-              <p className="text-sm font-semibold leading-5">{template.title}</p>
-              <div className="mt-4 grid grid-cols-2 gap-1 opacity-60">
-                <span className="h-8 rounded bg-current/10" />
-                <span className="h-8 rounded bg-current/10" />
-                <span className="h-8 rounded bg-current/10" />
-              </div>
-            </article>
+            <TemplateLibraryCard
+              key={getTemplateId(template)}
+              template={template}
+              onClick={() => onNavigate('clipbook', { dev: false, template: getTemplateId(template) })}
+            />
           ))}
         </div>
       </section>
@@ -200,6 +196,73 @@ function CardCenter({
       </section>
     </div>
   );
+}
+
+function TemplateLibraryCard({ template, onClick }: { template: ClipbookTemplate; onClick: () => void }) {
+  const templateId = getTemplateId(template);
+  const backgroundImage = template.backgroundImage ?? template.image;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="relative aspect-[9/16] w-[42%] min-w-[150px] max-w-[172px] shrink-0 overflow-hidden rounded-[22px] border border-white bg-white text-left shadow-sm shadow-stone-200"
+    >
+      {backgroundImage ? (
+        <img src={backgroundImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <TemplatePreviewBackground templateId={templateId} />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-stone-950/60 via-transparent to-white/10" />
+      {!backgroundImage ? <TemplateSlotPreview template={template} /> : null}
+      <p className="absolute inset-x-0 bottom-0 px-3 pb-3 pt-10 text-sm font-semibold leading-5 text-white drop-shadow">
+        {getTemplateDisplayName(template)}
+      </p>
+    </button>
+  );
+}
+
+function TemplatePreviewBackground({ templateId }: { templateId: TemplateId }) {
+  if (templateId === 'fps') {
+    return (
+      <div className="absolute inset-0 bg-[linear-gradient(145deg,#0f172a,#1e1b4b_55%,#083344)]">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(34,211,238,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(34,211,238,0.16)_1px,transparent_1px)] bg-[size:22px_22px]" />
+      </div>
+    );
+  }
+
+  if (templateId === 'landscape') {
+    return <div className="absolute inset-0 bg-[radial-gradient(circle_at_24%_76%,#bbf7d0_0_19%,transparent_20%),radial-gradient(circle_at_78%_72%,#bfdbfe_0_22%,transparent_23%),linear-gradient(#dff3f7,#fffaf0)]" />;
+  }
+
+  return <div className="absolute inset-0 border-l-[14px] border-stone-200 bg-[#fffaf0]" />;
+}
+
+function TemplateSlotPreview({ template }: { template: ClipbookTemplate }) {
+  return (
+    <>
+      {template.slots.map((slot) => (
+        <span
+          key={slot.slotId ?? slot.id}
+          className="absolute rounded-md border border-dashed border-white/75 bg-white/16 shadow-sm"
+          style={{ left: `${slot.x}%`, top: `${slot.y}%`, width: `${slot.w}%`, height: `${slot.h}%` }}
+        />
+      ))}
+    </>
+  );
+}
+
+function getTemplateId(template: ClipbookTemplate): TemplateId {
+  const id = template.templateId ?? template.id;
+  if (id === 'landscape' || id === 'blank') return id;
+  return 'fps';
+}
+
+function getTemplateDisplayName(template: ClipbookTemplate) {
+  const id = getTemplateId(template);
+  if (id === 'fps') return 'FPS 高光册';
+  if (id === 'landscape') return '风景灵感册';
+  return '空白书';
 }
 
 function HubEntry({ title, description, onClick }: { title: string; description: string; onClick: () => void }) {

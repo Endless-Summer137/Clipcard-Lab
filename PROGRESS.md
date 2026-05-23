@@ -56,6 +56,8 @@
 - Unified clipbook template fields around `templateId`, `backgroundImage`, `backgroundImageSource`, percentage slots, and `updatedAt`, while keeping legacy aliases so the existing editor and demo page read the same store.
 - Simplified the feed `CardQuickPreview` actions so it keeps a full-card entry while save/share are compact icon buttons and the quick “加入手账” text action is removed.
 - Added card detail generation time display and one editable/deletable `personalReflection` field per card, persisted through `cardStore`.
+- Reworked the user-facing template library as horizontal 9:16 template cards that read `clipbookTemplateStore`, then navigate directly to `?page=clipbook&template=fps|landscape|blank`.
+- Split the ordinary clipbook flow into a template-library state and a direct template-editor state, while keeping upload and slot-coordinate controls restricted to `dev=1`.
 
 ## Validation
 
@@ -95,6 +97,8 @@
 - Browser verification confirmed `风景模板` remains bound to the selected preview/slots instead of the FPS preview, the quick preview no longer renders the “加入手账” action and uses save/share icon buttons, `CardDetailView` shows real creation time, and personal reflection can be added, edited, deleted, restored to the add-entry state, and seen again after reloading `?page=cards`.
 - `npm.cmd run build` completed successfully after consolidating clipbook template configuration around the shared `clipcard_clipbook_templates` store.
 - Browser verification on `?page=clipbook&dev=1` confirmed the FPS editor and current preview now read the same slot data from the shared template store, with the preview slot styles matching the dev `x/y/w/h` values and no console errors.
+- `npm.cmd run build` completed successfully after the template-library and clipbook-template route update.
+- Browser verification confirmed the profile `卡片` Tab shows three horizontal 9:16 template cards, clicking `FPS 高光册` navigates to `?page=clipbook&template=fps`, direct landscape and blank routes open the matching editor, ordinary user pages show no template upload/config/coordinate controls, and `?page=clipbook&dev=1` still exposes the dev template configuration.
 
 ## Current Repository Agreement
 

@@ -36,7 +36,10 @@ Page responsibilities are intentionally split:
 - `/?page=profile`: personal homepage demo.
 - `/?page=creator`: creator center.
 - `/?page=cards`: my cards.
-- `/?page=clipbook`: card clipbook.
+- `/?page=clipbook`: card clipbook template library.
+- `/?page=clipbook&template=fps`: FPS clipbook editor.
+- `/?page=clipbook&template=landscape`: landscape clipbook editor.
+- `/?page=clipbook&template=blank`: blank-book clipbook editor.
 - `/?page=dresser`: card dresser placeholder.
 - `/?page=admin&dev=1`: hidden demo-material configuration page.
 - `/?page=internal&dev=1`: internal mechanism lab.
