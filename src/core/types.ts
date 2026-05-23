@@ -184,7 +184,12 @@ export interface CardEngineInput {
   transcriptExcerpt: string;
   segmentNote: string;
   visibleTextOrOcr?: string;
-  segmentFacts?: string[];
+  segmentFacts?: string | string[];
+  keyActions?: string | string[];
+  segmentOutcome?: string;
+  userValue?: string;
+  featuredPersonOrId?: string;
+  uncertainties?: string | string[];
   budgetResult: BudgetResult;
   adDecision: AdDecision;
   sourceAuthor?: string;
@@ -281,6 +286,13 @@ export interface DemoVideoInput {
   defaultSegmentEnd: number;
   transcriptExcerpt: string;
   segmentNote: string;
+  segmentFacts?: string | string[];
+  keyActions?: string | string[];
+  segmentOutcome?: string;
+  userValue?: string;
+  visibleTextOrOcr?: string;
+  featuredPersonOrId?: string;
+  uncertainties?: string | string[];
   adCandidate: string;
   videoDataUrl?: string;
   videoBlobKey?: string;

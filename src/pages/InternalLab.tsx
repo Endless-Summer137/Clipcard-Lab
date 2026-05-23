@@ -4,8 +4,8 @@ import { getBudgetGateAcceptanceCases, runBudgetGate } from '../core/budgetGate'
 import { generateSegmentCard } from '../core/cardEngine';
 import { getCards } from '../core/cardStore';
 import { getEvents } from '../core/eventStore';
-import type { AnalyzeFramesResponse, Keyframe, VisionAnalysis, VisionProvider } from '../core/types';
-import { defaultDemoVideos } from './demoData';
+import type { AnalyzeFramesResponse, CardEngineInput, Keyframe, VisionAnalysis, VisionProvider } from '../core/types';
+import { defaultDemoVideos, readDemoConfig } from './demoData';
 
 interface VisionApiStatus {
   configuredProvider?: VisionProvider;
@@ -21,9 +21,10 @@ interface VisionApiStatus {
 }
 
 export function InternalLab() {
-  const [videoId, setVideoId] = useState(defaultDemoVideos[0].videoId);
+  const [videos] = useState(() => readDemoConfig());
+  const [videoId, setVideoId] = useState((videos[0] ?? defaultDemoVideos[0]).videoId);
   const [visionStatus, setVisionStatus] = useState<VisionApiStatus | null>(null);
-  const video = defaultDemoVideos.find((item) => item.videoId === videoId) ?? defaultDemoVideos[0];
+  const video = videos.find((item) => item.videoId === videoId) ?? videos[0] ?? defaultDemoVideos[0];
   const budget = useMemo(() => runBudgetGate({
     videoId: video.videoId,
     triggerMode: 'long_press',
@@ -43,7 +44,7 @@ export function InternalLab() {
     transcriptExcerpt: video.transcriptExcerpt,
     adCandidate: video.adCandidate,
   }), [video]);
-  const card = useMemo(() => generateSegmentCard({
+  const cardEngineInput = useMemo<CardEngineInput>(() => ({
     videoId: video.videoId,
     videoTitle: video.videoTitle,
     videoDescription: video.videoDescription,
@@ -53,9 +54,17 @@ export function InternalLab() {
     segmentSource: 'default_demo_segment',
     transcriptExcerpt: video.transcriptExcerpt,
     segmentNote: video.segmentNote,
+    segmentFacts: video.segmentFacts,
+    keyActions: video.keyActions,
+    segmentOutcome: video.segmentOutcome,
+    userValue: video.userValue,
+    visibleTextOrOcr: video.visibleTextOrOcr,
+    featuredPersonOrId: video.featuredPersonOrId,
+    uncertainties: video.uncertainties,
     budgetResult: budget,
     adDecision,
   }), [adDecision, budget, video]);
+  const card = useMemo(() => generateSegmentCard(cardEngineInput), [cardEngineInput]);
   const events = getEvents();
   const cards = getCards();
   const latestFrameCard = cards.find((item) => item.keyframes?.length || item.budgetResult);
@@ -85,7 +94,7 @@ export function InternalLab() {
         <h1 className="text-2xl font-semibold">内部机制页</h1>
         <p className="mt-2 text-sm text-slate-400">用于答辩解释预算闸门、广告闸门和成本逻辑；不是用户端页面。</p>
         <select value={videoId} onChange={(event) => setVideoId(event.target.value)} className="mt-5 rounded-md border border-white/10 bg-slate-900 px-3 py-2">
-          {defaultDemoVideos.map((item) => <option key={item.videoId} value={item.videoId}>{item.videoTitle}</option>)}
+          {videos.map((item) => <option key={item.videoId} value={item.videoId}>{item.videoTitle}</option>)}
         </select>
         <div className="mt-5 grid gap-5 lg:grid-cols-2">
           <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
@@ -99,6 +108,8 @@ export function InternalLab() {
           <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
             <h2 className="font-semibold">cardEngine preview</h2>
             <pre className="mt-3 overflow-auto rounded bg-slate-900 p-3 text-xs">{JSON.stringify(card, null, 2)}</pre>
+            <p className="mt-3 text-xs text-slate-400">cardEngine input</p>
+            <pre className="mt-2 max-h-56 overflow-auto rounded bg-slate-900 p-3 text-xs">{JSON.stringify(cardEngineInput, null, 2)}</pre>
           </section>
           <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
             <h2 className="font-semibold">最近一次关键帧抽取</h2>

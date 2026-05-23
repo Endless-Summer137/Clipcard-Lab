@@ -10,7 +10,7 @@ const SEED_CARD_IDS = ['demo_card_food', 'demo_card_game', 'demo_card_travel'];
 function getFallbackVideoTitle(videoId: string) {
   const map: Record<string, string> = {
     demo_food_001: '深夜小店热汤',
-    demo_game_001: '团战反打高光',
+    demo_game_001: 'm0NESY 2025 超神高光回顾',
     demo_travel_001: '城市转角风景',
   };
   return map[videoId] ?? '演示视频片段';
@@ -19,7 +19,7 @@ function getFallbackVideoTitle(videoId: string) {
 function getFallbackSourceAuthor(videoId: string) {
   const map: Record<string, string> = {
     demo_food_001: '@clipcard_food',
-    demo_game_001: '@clipcard_game',
+    demo_game_001: '@ZqLjy20231124（仅做演示用）',
     demo_travel_001: '@clipcard_travel',
   };
   return map[videoId] ?? '@clipcard_demo';
@@ -34,8 +34,25 @@ function getFallbackSourceUrl(videoId: string) {
   return map[videoId] ?? `https://example.com/clipcard/${videoId || 'demo'}`;
 }
 
-function normalizeCard(card: SegmentCard): SegmentCard {
+function migrateDemoGameSeedCard(card: SegmentCard): SegmentCard {
+  if (card.cardId !== 'demo_card_game') return card;
+  const hasLegacyTitle = !card.title || card.title.includes('团战反打高光');
+  const hasLegacySource = !card.sourceVideoTitle || card.sourceVideoTitle.includes('团战反打高光');
+  const hasLegacyAuthor = !card.sourceAuthor || card.sourceAuthor === '@clipcard_game';
+  if (!hasLegacyTitle && !hasLegacySource && !hasLegacyAuthor) return card;
+
   return {
+    ...card,
+    sourceVideoTitle: 'm0NESY 2025 超神高光回顾',
+    sourceAuthor: '@ZqLjy20231124（仅做演示用）',
+    title: 'm0NESY 高光：AWP 狙击片段',
+    summary: '这段适合作为 m0NESY 的 FPS 高光片段收藏。重点可关注 AWP/狙击视角、游戏 HUD 和高光混剪节奏，适合加入 FPS 高光册或分享给朋友讨论。',
+    saveReason: '适合收藏选手高光、回看狙击/操作节奏，或作为 #游戏高能操作时刻 活动手账素材。',
+  };
+}
+
+function normalizeCard(card: SegmentCard): SegmentCard {
+  return migrateDemoGameSeedCard({
     ...card,
     createdAt: card.createdAt ?? new Date().toISOString(),
     segmentSource: card.segmentSource ?? 'default_demo_segment',
@@ -54,9 +71,9 @@ function normalizeCard(card: SegmentCard): SegmentCard {
       ? {
         text: card.personalReflection.text.slice(0, 300),
         updatedAt: card.personalReflection.updatedAt ?? new Date().toISOString(),
-      }
+    }
       : undefined,
-  };
+  });
 }
 
 function readCards(): SegmentCard[] {
@@ -177,16 +194,16 @@ export function seedDemoCardsIfEmpty() {
       ...baseCard,
       cardId: 'demo_card_game',
       videoId: 'demo_game_001',
-      sourceVideoTitle: '团战反打高光',
-      sourceAuthor: '@clipcard_game',
+      sourceVideoTitle: 'm0NESY 2025 超神高光回顾',
+      sourceAuthor: '@ZqLjy20231124（仅做演示用）',
       sourceVideoId: 'demo_game_001',
       sourceVideoUrl: 'https://example.com/clipcard/demo_game_001',
       segmentStart: 21,
       segmentEnd: 28,
       cardType: '游戏高光卡',
-      title: '游戏高光卡：团战反打高光',
-      summary: '从当前片段看，这可能是适合复看的操作高光；如果后续补充技能顺序，卡片可以更接近复盘用途。',
-      saveReason: '用户可能想保存这段用于回看节奏、走位或操作选择。',
+      title: 'm0NESY 高光：AWP 狙击片段',
+      summary: '这段适合作为 m0NESY 的 FPS 高光片段收藏。重点可关注 AWP/狙击视角、游戏 HUD 和高光混剪节奏，适合加入 FPS 高光册或分享给朋友讨论。',
+      saveReason: '适合收藏选手高光、回看狙击/操作节奏，或作为 #游戏高能操作时刻 活动手账素材。',
       evidenceNote: '演示卡片基于本地 demo 输入生成，不代表真实视觉识别结果。',
     },
     {

@@ -34,7 +34,7 @@ export function getVideoSourceName(card: SegmentCard) {
 
   const map: Record<string, string> = {
     demo_food_001: '深夜小店热汤',
-    demo_game_001: '团战反打高光',
+    demo_game_001: 'm0NESY 2025 超神高光回顾',
     demo_travel_001: '城市转角风景',
   };
   return map[card.videoId] ?? '演示视频片段';
@@ -46,7 +46,7 @@ export function getSourceAuthor(card: SegmentCard) {
 
   const map: Record<string, string> = {
     demo_food_001: '@clipcard_food',
-    demo_game_001: '@clipcard_game',
+    demo_game_001: '@ZqLjy20231124（仅做演示用）',
     demo_travel_001: '@clipcard_travel',
   };
   return map[card.videoId] ?? '@clipcard_demo';

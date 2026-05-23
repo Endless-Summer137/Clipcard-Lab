@@ -20,6 +20,17 @@ interface AdminConfigPageProps {
 const MAX_VIDEO_FILE_SIZE = 200 * 1024 * 1024;
 const SUPPORTED_VIDEO_TYPES = ['video/mp4', 'video/webm'];
 
+function fieldToText(value?: string | string[]) {
+  return Array.isArray(value) ? value.join('\n') : value ?? '';
+}
+
+function parseListField(value: string) {
+  return value
+    .split(/[\n，,]/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 export function AdminConfigPage({ onNavigate }: AdminConfigPageProps) {
   const [videos, setVideos] = useState<DemoVideoConfig[]>(() => {
     try {
@@ -185,6 +196,34 @@ export function AdminConfigPage({ onNavigate }: AdminConfigPageProps) {
               <label className="mt-3 block text-sm text-slate-300">
                 segmentNote
                 <textarea value={item.segmentNote} onChange={(event) => updateVideo(index, { segmentNote: event.target.value })} rows={3} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                segmentFacts
+                <textarea value={fieldToText(item.segmentFacts)} onChange={(event) => updateVideo(index, { segmentFacts: event.target.value })} rows={4} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                keyActions
+                <textarea value={fieldToText(item.keyActions)} onChange={(event) => updateVideo(index, { keyActions: parseListField(event.target.value) })} rows={3} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                segmentOutcome
+                <textarea value={item.segmentOutcome ?? ''} onChange={(event) => updateVideo(index, { segmentOutcome: event.target.value })} rows={2} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                userValue
+                <textarea value={item.userValue ?? ''} onChange={(event) => updateVideo(index, { userValue: event.target.value })} rows={3} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                visibleTextOrOcr
+                <textarea value={item.visibleTextOrOcr ?? ''} onChange={(event) => updateVideo(index, { visibleTextOrOcr: event.target.value })} rows={2} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                featuredPersonOrId
+                <input value={item.featuredPersonOrId ?? ''} onChange={(event) => updateVideo(index, { featuredPersonOrId: event.target.value })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                uncertainties
+                <textarea value={fieldToText(item.uncertainties)} onChange={(event) => updateVideo(index, { uncertainties: event.target.value })} rows={3} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
               </label>
               <label className="mt-3 block text-sm text-slate-300">
                 adCandidate
