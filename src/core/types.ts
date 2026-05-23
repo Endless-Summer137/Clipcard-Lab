@@ -102,6 +102,10 @@ export interface CardEngineInput {
   coverImage?: string;
   coverFrame?: number;
   coverSource?: 'current_frame' | 'segment_start_frame' | 'generated_placeholder' | 'future_best_frame';
+  activityId?: string;
+  activityName?: string;
+  activityCta?: string;
+  targetClipbookTemplate?: string;
 }
 
 export interface SegmentCard {
@@ -121,6 +125,10 @@ export interface SegmentCard {
   coverImage?: string;
   coverFrame?: number;
   coverSource?: 'current_frame' | 'segment_start_frame' | 'generated_placeholder' | 'future_best_frame';
+  activityId?: string;
+  activityName?: string;
+  activityCta?: string;
+  targetClipbookTemplate?: string;
   personalReflection?: {
     text: string;
     updatedAt: string;
@@ -173,4 +181,9 @@ export interface DemoVideoInput {
   adCandidate: string;
   videoDataUrl?: string;
   authorName?: string;
+  activityEnabled?: boolean;
+  activityId?: string;
+  activityName?: string;
+  activityCta?: string;
+  targetClipbookTemplate?: string;
 }

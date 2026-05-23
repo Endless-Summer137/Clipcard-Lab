@@ -62,6 +62,10 @@
 - Reworked `ClipbookPage` so `?page=clipbook` opens a `卡片手账` home page with `我的手账` and `新建手账 / 模板库` sections instead of replacing the page with a large template library.
 - Changed template editing into a draft flow: selecting a template starts a new 手账, cards placed in slots remain draft-only, and the new `保存手账` primary action creates or updates a saved 手账 before returning to the home page.
 - Added a saved 手账 detail view with template preview, placed-card slots, `保存到相册`, `分享`, `一键发布为视频`, and `继续编辑`; continuing edit reloads the existing slot card ids and saving updates the same 手账.
+- Repositioned ClipCard as an activity-only entry on the feed: the right rail now stays as ordinary avatar/like/comment/favorite/share actions, while activity-enabled demo videos show a bottom-left activity capsule.
+- Added activity metadata fields to demo videos and generated cards (`activityId`, `activityName`, `activityCta`, `targetClipbookTemplate`), with food and game demos enabled and the travel demo intentionally disabled.
+- Updated the activity quick preview to show the activity label and `加入活动手账 / 分享 / 查看完整卡片`, and routed activity clipbook entry to the recommended template without auto-layout.
+- Added activity labels to shared card thumbnails and changed empty-state copy in card and clipbook pages toward activity collection.
 
 ## Validation
 
@@ -105,6 +109,8 @@
 - Browser verification confirmed the profile `卡片` Tab shows three horizontal 9:16 template cards, clicking `FPS 高光册` navigates to `?page=clipbook&template=fps`, direct landscape and blank routes open the matching editor, ordinary user pages show no template upload/config/coordinate controls, and `?page=clipbook&dev=1` still exposes the dev template configuration.
 - `npm.cmd run build` completed successfully after the saved 手账 information architecture and save-flow update.
 - Browser verification for this pass was blocked by the Browser URL policy: the plugin rejected both the temporary localhost preview and the local `file://` preview. Static source review confirmed the default clipbook route now renders the home page, template selection enters draft editing, `保存手账` writes `clipcard_clipbooks`, saved entries open detail, and detail `继续编辑` updates the existing 手账.
+- `npm.cmd run build` completed successfully after changing the feed ClipCard entry into activity capsules.
+- Source validation confirmed the right rail no longer renders a `保存这一刻` button, demo videos 1 and 2 carry activity metadata, demo video 3 has `activityEnabled: false`, generated cards receive `activityName`, and activity preview exposes `加入活动手账`.
 
 ## Current Repository Agreement
 

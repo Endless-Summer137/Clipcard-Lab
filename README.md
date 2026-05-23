@@ -20,7 +20,7 @@ The app separates shared mechanism logic from page-level demos:
 
 Page responsibilities are intentionally split:
 
-- `DemoFeedPage`: user-facing short-video feed demo. It resolves the user-triggered segment, calls the core modules, and shows the generated card result, not the internal gates.
+- `DemoFeedPage`: user-facing short-video feed demo. It keeps the right rail as ordinary video actions, then exposes ClipCard only through activity capsules on activity-enabled videos.
 - `useClipCards`: shared hook for reading, refreshing, saving, and deleting cards from one card store.
 - `ProfilePage`: short-video-style personal homepage with creator-center and card entrances.
 - `UserSubPageShell`: shared light app-page shell for profile subpages such as my cards, clipbook, dresser, and creator center.
@@ -50,6 +50,7 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 ## What It Tests
 
 - Sample clip scenarios: 美食探店, 游戏高光, 旅行风景, 低信息片段.
+- Activity-entry scenarios: `#分享你的美食搭子` and `#游戏高能操作时刻` show bottom-left activity capsules, while the travel demo intentionally has no ClipCard entry.
 - Real video test mode for local `mp4` / `webm` uploads through the hidden demo-material configuration mode.
 - Demo default segment fields named `defaultSegmentStart` / `defaultSegmentEnd`, used only as fallback when no real user-triggered segment is available.
 - Short-press segment generation from the current video time when a real video is available, with `segmentSource` stored on every generated card.
@@ -61,7 +62,7 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 - Local `localStorage` card persistence and event logging.
 - Shared card reads through `useClipCards`, with `clipcard.cards` as the unified card storage key and `clipcard_clipbooks` as the saved clipbook storage key.
 - Collectible ClipCard card visuals with themed mini cards, detail view, fixed ad disclosure area, and scrollable card content.
-- A light feed quick-preview card after “保存这一刻”, with compact save/share icon actions and an entry to open the full card detail view.
+- A light activity quick-preview card after tapping an activity capsule, with `加入活动手账`, share, and full-card actions.
 - A one-per-card personal reflection field in `CardDetailView`, editable and deletable by the user and persisted in `cardStore`.
 - Cover-style card thumbnails that use saved video-frame covers when available and fall back to soft light-card surfaces for low-information clips.
 - A saved card clipbook flow with a `我的手账` home, new-template entry, draft slot placement, `保存手账`, saved clipbook detail, placeholder album/share/video actions, and disabled duplicate placement in the card picker.

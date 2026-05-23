@@ -21,6 +21,11 @@ export const defaultDemoVideos: DemoVideoConfig[] = [
     adCandidate: '门店团购',
     authorName: '@clipcard_food',
     duration: 72,
+    activityEnabled: true,
+    activityId: 'activity_food_partner',
+    activityName: '#分享你的美食搭子',
+    activityCta: '收集这一刻',
+    targetClipbookTemplate: 'blank',
   },
   {
     videoId: 'demo_game_001',
@@ -34,6 +39,11 @@ export const defaultDemoVideos: DemoVideoConfig[] = [
     adCandidate: '游戏外设',
     authorName: '@clipcard_game',
     duration: 86,
+    activityEnabled: true,
+    activityId: 'activity_game_highlight',
+    activityName: '#游戏高能操作时刻',
+    activityCta: '收集高光',
+    targetClipbookTemplate: 'fps',
   },
   {
     videoId: 'demo_travel_001',
@@ -47,6 +57,7 @@ export const defaultDemoVideos: DemoVideoConfig[] = [
     adCandidate: '景区广告',
     authorName: '@clipcard_travel',
     duration: 60,
+    activityEnabled: false,
   },
 ];
 
@@ -60,6 +71,11 @@ export function readDemoConfig() {
       ...parsed[index],
       videoId: parsed[index]?.videoId || fallback.videoId,
       tags: Array.isArray(parsed[index]?.tags) ? parsed[index]?.tags ?? fallback.tags : fallback.tags,
+      activityEnabled: parsed[index]?.activityEnabled ?? fallback.activityEnabled,
+      activityId: parsed[index]?.activityId ?? fallback.activityId,
+      activityName: parsed[index]?.activityName ?? fallback.activityName,
+      activityCta: parsed[index]?.activityCta ?? fallback.activityCta,
+      targetClipbookTemplate: parsed[index]?.targetClipbookTemplate ?? fallback.targetClipbookTemplate,
     }));
   } catch {
     return defaultDemoVideos;

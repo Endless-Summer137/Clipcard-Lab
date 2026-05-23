@@ -1,4 +1,4 @@
-import { Bookmark, Download, Share2, Trash2, X } from 'lucide-react';
+import { Download, Share2, Trash2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { SegmentCard } from '../core/types';
 import { deleteCard, getCardById, updateCard } from '../core/cardStore';
@@ -141,6 +141,11 @@ export function CardThumbnail({ card, onClick, className = 'aspect-[3/4]' }: { c
         {getCardTypeLabel(card)}
       </span>
       <span className={`absolute inset-x-0 bottom-0 z-10 px-2.5 pb-2.5 pt-10 ${showCover ? 'bg-gradient-to-t from-black/70 via-black/32 to-transparent' : ''}`}>
+        {card.activityName ? (
+          <span className={`mb-1 block truncate text-[10px] font-medium ${showCover ? 'text-white/86 drop-shadow' : theme.accent}`}>
+            {card.activityName}
+          </span>
+        ) : null}
         <span className={`line-clamp-2 text-sm font-semibold leading-5 ${showCover ? 'text-white drop-shadow' : ''}`}>{getCardDisplayTitle(card)}</span>
       </span>
     </>
@@ -169,14 +174,14 @@ export function CardQuickPreview({
   card,
   feedback,
   onClose,
-  onSave,
+  onAddToActivityClipbook,
   onShare,
   onOpenDetail,
 }: {
   card: SegmentCard;
   feedback?: string;
   onClose: () => void;
-  onSave: () => void;
+  onAddToActivityClipbook?: () => void;
   onShare: () => void;
   onOpenDetail: () => void;
 }) {
@@ -203,6 +208,11 @@ export function CardQuickPreview({
           <button type="button" onClick={onOpenDetail} className="min-w-0 flex-1 text-left">
             <div className="flex flex-wrap items-center gap-2">
               <span className={`rounded-full px-3 py-1 text-xs font-medium ${quickTheme.tag}`}>{getCardTypeLabel(card)}</span>
+              {card.activityName ? (
+                <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-medium text-stone-700 shadow-sm">
+                  {card.activityName}
+                </span>
+              ) : null}
               <span className={`text-xs ${quickTheme.muted}`}>
                 {formatSeconds(card.segmentStart)} - {formatSeconds(card.segmentEnd)}
               </span>
@@ -218,17 +228,25 @@ export function CardQuickPreview({
           <p className={`line-clamp-3 text-sm leading-6 ${quickTheme.muted}`}>{card.summary}</p>
         </button>
 
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <button type="button" onClick={onOpenDetail} className={`rounded-full bg-white/65 px-3.5 py-2 text-xs font-medium shadow-sm ${quickTheme.accent}`}>
-            查看完整卡片
-          </button>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={onSave} aria-label="保存到我的卡片" className="grid h-10 w-10 place-items-center rounded-full bg-stone-900 text-white shadow-sm">
-              <Bookmark className="h-5 w-5" strokeWidth={1.9} />
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          {card.activityName ? (
+            <button type="button" onClick={onAddToActivityClipbook} className="rounded-full bg-stone-900 px-3.5 py-2 text-xs font-medium text-white shadow-sm">
+              加入活动手账
             </button>
-            <button type="button" onClick={onShare} aria-label="分享卡片" className="grid h-10 w-10 place-items-center rounded-full bg-white/75 shadow-sm">
-              <Share2 className="h-5 w-5" strokeWidth={1.9} />
+          ) : (
+            <button type="button" onClick={onOpenDetail} className={`rounded-full bg-white/65 px-3.5 py-2 text-xs font-medium shadow-sm ${quickTheme.accent}`}>
+              查看完整卡片
             </button>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={onShare} className="rounded-full bg-white/75 px-3.5 py-2 text-xs font-medium shadow-sm">
+              分享
+            </button>
+            {card.activityName ? (
+              <button type="button" onClick={onOpenDetail} className={`rounded-full bg-white/65 px-3.5 py-2 text-xs font-medium shadow-sm ${quickTheme.accent}`}>
+                查看完整卡片
+              </button>
+            ) : null}
           </div>
         </div>
         {feedback ? <p className={`mt-3 text-center text-xs font-medium ${quickTheme.accent}`}>{feedback}</p> : null}

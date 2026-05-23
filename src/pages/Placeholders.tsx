@@ -39,7 +39,7 @@ export function MyCardsPage({ onNavigate }: SimplePageProps) {
           </div>
         ) : (
           <div className="mt-24 rounded-3xl bg-[#f3f0e7] px-5 py-9 text-center text-sm leading-6 text-stone-500 shadow-sm shadow-stone-200">
-            刷视频时点击“保存这一刻”，片段卡会出现在这里。
+            参与活动时点击活动胶囊，生成的片段卡会出现在这里。
           </div>
         )}
       </section>
@@ -242,7 +242,7 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
     return (
       <UserSubPageShell
         title="卡片手账"
-        subtitle="把保存的片段卡整理成可分享的手账"
+        subtitle="把活动中收集的片段卡整理成你的主题手账"
         onBack={() => onNavigate('profile', { dev: false })}
       >
         <ClipbookHome
@@ -746,7 +746,7 @@ function CardPickerModal({
           </div>
         ) : (
           <p className="mt-8 rounded-2xl bg-stone-100 px-4 py-6 text-center text-sm leading-6 text-stone-500">
-            还没有可放入手账的卡片。先在视频里点击“保存这一刻”生成卡片。
+            还没有可放入手账的卡片。先在活动视频里点击活动胶囊生成卡片。
           </p>
         )}
         {devMode ? (

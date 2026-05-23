@@ -95,6 +95,26 @@ export function AdminConfigPage({ onNavigate }: AdminConfigPageProps) {
                 adCandidate
                 <input value={item.adCandidate} onChange={(event) => updateVideo(index, { adCandidate: event.target.value })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
               </label>
+              <label className="mt-3 flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" checked={Boolean(item.activityEnabled)} onChange={(event) => updateVideo(index, { activityEnabled: event.target.checked })} />
+                activityEnabled
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                activityId
+                <input value={item.activityId ?? ''} onChange={(event) => updateVideo(index, { activityId: event.target.value })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                activityName
+                <input value={item.activityName ?? ''} onChange={(event) => updateVideo(index, { activityName: event.target.value })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                activityCta
+                <input value={item.activityCta ?? ''} onChange={(event) => updateVideo(index, { activityCta: event.target.value })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                targetClipbookTemplate
+                <input value={item.targetClipbookTemplate ?? ''} onChange={(event) => updateVideo(index, { targetClipbookTemplate: event.target.value })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
             </section>
           ))}
         </div>

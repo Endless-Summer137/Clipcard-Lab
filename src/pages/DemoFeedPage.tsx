@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { runAdGate } from '../core/adGate';
 import { runBudgetGate } from '../core/budgetGate';
 import { generateSegmentCard } from '../core/cardEngine';
-import { getCardById, saveCard } from '../core/cardStore';
+import { saveCard } from '../core/cardStore';
 import { recordEvent } from '../core/eventStore';
 import type { SegmentCard, SegmentSource, TriggerMode } from '../core/types';
 import { CardDetailView, CardQuickPreview } from './CardDetailView';
@@ -12,6 +12,7 @@ import { defaultDemoVideos, readDemoConfig, type DemoVideoConfig } from './demoD
 
 interface DemoFeedPageProps {
   onOpenProfile?: () => void;
+  onOpenClipbookTemplate?: (templateId: 'fps' | 'landscape' | 'blank') => void;
 }
 
 interface ResolvedSegment {
@@ -27,7 +28,7 @@ interface ManualSegmentSelection {
   segmentEnd: number;
 }
 
-export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
+export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeedPageProps) {
   const [videos, setVideos] = useState<DemoVideoConfig[]>(() => readDemoConfig());
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeCard, setActiveCard] = useState<SegmentCard | null>(null);
@@ -35,17 +36,12 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
   const [cardFeedback, setCardFeedback] = useState('');
   const [isGeneratingCard, setIsGeneratingCard] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
-  const [showSaveHint, setShowSaveHint] = useState(true);
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
-  const longPressTimerRef = useRef<number | null>(null);
-  const longPressTriggeredRef = useRef(false);
 
   const video = videos[activeIndex] ?? defaultDemoVideos[0];
 
   useEffect(() => {
     setVideos(readDemoConfig());
-    const timer = window.setTimeout(() => setShowSaveHint(false), 1200);
-    return () => window.clearTimeout(timer);
   }, []);
 
   function formatSeconds(seconds: number) {
@@ -265,6 +261,12 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
         segmentNote: video.segmentNote,
         budgetResult,
         adDecision,
+        ...(video.activityEnabled ? {
+          activityId: video.activityId,
+          activityName: video.activityName,
+          activityCta: video.activityCta,
+          targetClipbookTemplate: video.targetClipbookTemplate,
+        } : {}),
         ...cover,
       });
 
@@ -275,7 +277,13 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
         cardId: card.cardId,
         segmentStart: card.segmentStart,
         segmentEnd: card.segmentEnd,
-        metadata: { budgetLevel: budgetResult.level, adDecision: adDecision.decision, segmentSource: card.segmentSource },
+        metadata: {
+          budgetLevel: budgetResult.level,
+          adDecision: adDecision.decision,
+          segmentSource: card.segmentSource,
+          activityName: card.activityName,
+          targetClipbookTemplate: card.targetClipbookTemplate,
+        },
       });
       if (adDecision.decision === 'allow') {
         recordEvent({
@@ -288,54 +296,39 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
         });
       }
       setActiveCard(card);
+      if (card.activityName) setCardFeedback(`已生成「${card.activityName}」活动卡片`);
     } finally {
       setIsGeneratingCard(false);
     }
   }
 
-  function clearLongPressTimer() {
-    if (longPressTimerRef.current) {
-      window.clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-  }
-
-  function onBookmarkPointerDown() {
-    longPressTriggeredRef.current = false;
-    clearLongPressTimer();
-    longPressTimerRef.current = window.setTimeout(() => {
-      longPressTriggeredRef.current = true;
-      void buildCardFromVideo('long_press');
-    }, 650);
-  }
-
-  function onBookmarkPointerUp() {
-    clearLongPressTimer();
-  }
-
-  function onBookmarkClick() {
-    if (longPressTriggeredRef.current) {
-      longPressTriggeredRef.current = false;
-      return;
-    }
-
-    void buildCardFromVideo('short_press');
-  }
-
-  function recordCardAction(eventType: 'card_saved' | 'card_shared') {
+  function recordCardAction(eventType: 'card_shared' | 'card_added_to_clipbook') {
     if (!activeCard) return;
-    const alreadySaved = eventType === 'card_saved' && Boolean(getCardById(activeCard.cardId));
-    if (eventType === 'card_saved' && !alreadySaved) saveCard(activeCard);
     recordEvent({
       eventType,
       videoId: activeCard.videoId,
       cardId: activeCard.cardId,
       segmentStart: activeCard.segmentStart,
       segmentEnd: activeCard.segmentEnd,
+      metadata: {
+        activityName: activeCard.activityName,
+        targetClipbookTemplate: activeCard.targetClipbookTemplate,
+      },
     });
 
-    if (eventType === 'card_saved') setCardFeedback(alreadySaved ? '已保存' : '已保存到我的卡片');
     if (eventType === 'card_shared') setCardFeedback('已生成分享卡片');
+    if (eventType === 'card_added_to_clipbook') setCardFeedback('已进入活动手账编辑');
+  }
+
+  function normalizeTargetTemplate(value?: string): 'fps' | 'landscape' | 'blank' {
+    if (value === 'fps' || value === 'landscape' || value === 'blank') return value;
+    return 'blank';
+  }
+
+  function addToActivityClipbook() {
+    if (!activeCard) return;
+    recordCardAction('card_added_to_clipbook');
+    onOpenClipbookTemplate?.(normalizeTargetTemplate(activeCard.targetClipbookTemplate));
   }
 
   function onWheel(event: WheelEvent<HTMLElement>) {
@@ -382,36 +375,29 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
           <button className="text-white drop-shadow-[0_2px_7px_rgba(0,0,0,0.65)]" type="button" aria-label="喜欢">
             <Heart className="h-8 w-8" strokeWidth={2.1} />
           </button>
-          <div className="relative">
-            {showSaveHint ? (
-              <span className="pointer-events-none absolute right-9 top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-black/70 px-2.5 py-1 text-xs text-white shadow-lg backdrop-blur">
-                保存这一刻
-              </span>
-            ) : null}
-            <button
-              className="text-white drop-shadow-[0_2px_7px_rgba(0,0,0,0.65)]"
-              type="button"
-              onPointerDown={onBookmarkPointerDown}
-              onPointerUp={onBookmarkPointerUp}
-              onPointerLeave={clearLongPressTimer}
-              onPointerCancel={clearLongPressTimer}
-              onClick={onBookmarkClick}
-              aria-label="保存这一刻"
-            >
-              <Bookmark className="h-8 w-8" strokeWidth={2.1} />
-            </button>
-          </div>
-          <button className="text-white drop-shadow-[0_2px_7px_rgba(0,0,0,0.65)]" type="button" aria-label="收藏">
-            <Star className="h-8 w-8" strokeWidth={2.1} />
-          </button>
           <button className="text-white drop-shadow-[0_2px_7px_rgba(0,0,0,0.65)]" type="button" aria-label="评论">
             <MessageCircle className="h-8 w-8" strokeWidth={2.1} />
+          </button>
+          <button className="text-white drop-shadow-[0_2px_7px_rgba(0,0,0,0.65)]" type="button" aria-label="收藏">
+            <Star className="h-8 w-8" strokeWidth={2.1} />
           </button>
           <button className="text-white drop-shadow-[0_2px_7px_rgba(0,0,0,0.65)]" type="button" aria-label="分享">
             <Share2 className="h-8 w-8" strokeWidth={2.1} />
           </button>
         </aside>
         <section className="relative z-10 px-5 pb-20">
+          {video.activityEnabled && video.activityName ? (
+            <button
+              type="button"
+              disabled={isGeneratingCard}
+              onClick={() => void buildCardFromVideo('short_press')}
+              className="mb-3 inline-flex max-w-[86%] items-center gap-2 rounded-full border border-white/35 bg-white/82 px-3 py-2 text-left text-xs font-semibold text-stone-900 shadow-lg shadow-black/18 backdrop-blur transition hover:bg-white disabled:opacity-70"
+              aria-label={`${video.activityName} ${video.activityCta ?? '加入这一刻'}`}
+            >
+              <Bookmark className="h-4 w-4 shrink-0" strokeWidth={2.1} />
+              <span className="truncate">{video.activityName} · {video.activityCta ?? '加入这一刻'}</span>
+            </button>
+          ) : null}
           <p className="text-sm font-semibold">{video.authorName}</p>
           <p className="mt-2 max-w-[78%] text-sm leading-6 text-white/82">{video.videoDescription}</p>
         </section>
@@ -438,7 +424,7 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
           card={activeCard}
           feedback={cardFeedback}
           onClose={() => setActiveCard(null)}
-          onSave={() => recordCardAction('card_saved')}
+          onAddToActivityClipbook={addToActivityClipbook}
           onShare={() => recordCardAction('card_shared')}
           onOpenDetail={() => setDetailCard(activeCard)}
         />

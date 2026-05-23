@@ -57,7 +57,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
               <p className="mt-1 text-sm text-stone-500">ID：clipcard_2026</p>
             </div>
           </div>
-          <p className="mt-4 text-sm leading-6 text-stone-600">用短视频片段卡验证“保存这一刻”的演示账号。</p>
+          <p className="mt-4 text-sm leading-6 text-stone-600">用活动片段卡验证“收集这一刻”的演示账号。</p>
 
           <div className="mt-5 grid grid-cols-5 items-center gap-2 text-center">
             {[
@@ -190,7 +190,7 @@ function CardCenter({
           </div>
         ) : (
           <div className="mt-3 rounded-2xl bg-white px-4 py-6 text-center text-sm leading-6 text-stone-500 shadow-sm shadow-stone-200">
-            刷视频时点击“保存这一刻”，片段卡会出现在这里。
+            参与活动时点击活动胶囊，片段卡会出现在这里。
           </div>
         )}
       </section>

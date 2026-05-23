@@ -37,6 +37,12 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
     coverFrame: input.coverFrame,
     coverSource: input.coverSource,
   };
+  const activityFields = {
+    activityId: input.activityId,
+    activityName: input.activityName,
+    activityCta: input.activityCta,
+    targetClipbookTemplate: input.targetClipbookTemplate,
+  };
   const sourceFields = {
     segmentSource: input.segmentSource,
     sourceVideoTitle: input.videoTitle,
@@ -57,6 +63,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
       adDecision: input.adDecision,
       createdAt,
       ...coverFields,
+      ...activityFields,
     };
   }
 
@@ -77,6 +84,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
       adDecision: input.adDecision,
       createdAt,
       ...coverFields,
+      ...activityFields,
     };
   }
 
@@ -98,5 +106,6 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
     adDecision: input.adDecision,
     createdAt,
     ...coverFields,
+    ...activityFields,
   };
 }

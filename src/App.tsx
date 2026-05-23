@@ -114,7 +114,12 @@ export default function App() {
         return <DresserPage onNavigate={navigate} />;
       case 'demoFeed':
       default:
-        return <DemoFeedPage onOpenProfile={() => navigate('profile', { dev: false })} />;
+        return (
+          <DemoFeedPage
+            onOpenProfile={() => navigate('profile', { dev: false })}
+            onOpenClipbookTemplate={(template) => navigate('clipbook', { dev: false, template })}
+          />
+        );
     }
   }
 
