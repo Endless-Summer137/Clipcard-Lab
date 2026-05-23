@@ -178,6 +178,9 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
       const cover = await getCover(mode);
       const budgetResult = runBudgetGate({
         videoId: video.videoId,
+        triggerMode: mode === 'segment_start_frame' ? 'long_press' : 'short_press',
+        videoTitle: video.videoTitle,
+        videoDescription: video.videoDescription,
         tags: video.tags,
         segmentStart: video.defaultSegmentStart,
         segmentEnd: video.defaultSegmentEnd,

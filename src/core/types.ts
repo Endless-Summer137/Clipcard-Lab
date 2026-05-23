@@ -1,28 +1,69 @@
 export type BudgetLevel = 0 | 1 | 2 | 3 | 4;
 
-export type AudioWindowStrategy =
+export type TriggerMode = 'short_press' | 'long_press';
+
+export type BudgetRoute =
+  | 'visual_scene_first'
+  | 'visual_step_first'
+  | 'transcript_first'
+  | 'ocr_first'
+  | 'motion_audio_first'
+  | 'low_info';
+
+export type AudioStrategy =
   | 'none'
-  | '3s_around_frame'
+  | '3s_around_trigger'
   | '12s_around_3_frames'
-  | '20s_around_5_frames'
+  | '20s_around_5_frames';
+
+export type AudioWindowStrategy =
+  | AudioStrategy
+  | '3s_around_frame'
   | 'full_segment_or_transcript_first';
 
 export type CostLevel = 'none' | 'low' | 'medium' | 'high';
 
+export interface PlatformSignals {
+  favoriteCount?: number;
+  likeCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  collectRate?: number;
+}
+
+export interface VisualSignals {
+  hasTextOnScreen?: boolean;
+  hasGameUI?: boolean;
+  hasHandsOrTools?: boolean;
+  hasStepLikeMotion?: boolean;
+  hasStableScene?: boolean;
+  isBlurryOrLowInfo?: boolean;
+}
+
 export interface BudgetGateInput {
   videoId: string;
+  triggerMode: TriggerMode;
+  videoTitle: string;
+  videoDescription: string;
   tags: string[];
   segmentStart: number;
   segmentEnd: number;
-  transcriptExcerpt: string;
-  segmentNote: string;
+  transcriptExcerpt?: string;
+  segmentNote?: string;
+  platformSignals?: PlatformSignals;
+  visualSignals?: VisualSignals;
 }
 
 export interface BudgetResult {
   level: BudgetLevel;
+  route: BudgetRoute;
   frameCount: 0 | 1 | 3 | 5;
+  audioStrategy: AudioStrategy;
   audioWindowStrategy: AudioWindowStrategy;
   costLevel: CostLevel;
+  needsTranscript: boolean;
+  needsOCR: boolean;
+  needsVisualStepAnalysis: boolean;
   needsTranscriptOrAudio: boolean;
   reason: string;
 }

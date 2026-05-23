@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { runAdGate } from '../core/adGate';
-import { runBudgetGate } from '../core/budgetGate';
+import { getBudgetGateAcceptanceCases, runBudgetGate } from '../core/budgetGate';
 import { generateSegmentCard } from '../core/cardEngine';
 import { getEvents } from '../core/eventStore';
 import { defaultDemoVideos } from './demoData';
@@ -10,6 +10,9 @@ export function InternalLab() {
   const video = defaultDemoVideos.find((item) => item.videoId === videoId) ?? defaultDemoVideos[0];
   const budget = useMemo(() => runBudgetGate({
     videoId: video.videoId,
+    triggerMode: 'long_press',
+    videoTitle: video.videoTitle,
+    videoDescription: video.videoDescription,
     tags: video.tags,
     segmentStart: video.defaultSegmentStart,
     segmentEnd: video.defaultSegmentEnd,
@@ -37,6 +40,7 @@ export function InternalLab() {
     adDecision,
   }), [adDecision, budget, video]);
   const events = getEvents();
+  const budgetCases = getBudgetGateAcceptanceCases();
 
   return (
     <main className="min-h-screen bg-slate-950 px-5 py-6 text-slate-100">
@@ -62,6 +66,10 @@ export function InternalLab() {
           <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
             <h2 className="font-semibold">eventStore log</h2>
             <pre className="mt-3 max-h-96 overflow-auto rounded bg-slate-900 p-3 text-xs">{JSON.stringify(events, null, 2)}</pre>
+          </section>
+          <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4 lg:col-span-2">
+            <h2 className="font-semibold">budgetGate 验收案例</h2>
+            <pre className="mt-3 max-h-96 overflow-auto rounded bg-slate-900 p-3 text-xs">{JSON.stringify(budgetCases, null, 2)}</pre>
           </section>
         </div>
       </div>

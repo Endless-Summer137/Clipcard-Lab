@@ -41,6 +41,9 @@
 - Unified card access through `useClipCards`, moved card persistence to the shared `clipcard.cards` key with legacy migration, and moved clipbook placements to `clipcard.clipbookPlacements` with legacy migration.
 - Replaced the short-video feed's old dark bottom card popup with a light `CardQuickPreview` that can save, share, add to clipbook, and open the full `CardDetailView`.
 - Standardized card thumbnail rendering through `CardThumbnail` for the my-cards grid, clipbook picker, profile recent cards, and clipbook slot previews.
+- Reworked `budgetGate` so segment duration is only the base level; final budget now also considers trigger mode, title, description, tags, transcript, platform signals, and simulated visual signals.
+- Added budget routes for `visual_scene_first`, `visual_step_first`, `transcript_first`, `ocr_first`, `motion_audio_first`, and `low_info`, with Level 0-3 frame/audio strategies and explicit OCR / transcript / visual-step needs.
+- Added internal budget-gate acceptance cases for game skills, scenery, blurry low-info clips, knowledge subtitles, and editing-software OCR content.
 
 ## Validation
 
@@ -70,6 +73,8 @@
 - Source validation confirmed `myCards`, `clipbook`, `dresser`, and `creatorCenter` use `UserSubPageShell`; `CardPickerModal` reads `cardStore.getCards()` directly; and slot opening refreshes the parent card list from the same store before selection.
 - `npm.cmd run build` completed successfully after unifying card selection, storage keys, and the feed quick-preview card.
 - Browser verification confirmed the feed bookmark opens the new light quick preview, “查看完整卡片” opens `CardDetailView`, the clipbook slot picker reads the same saved cards visible in `MyCardsPage`, and selecting a card places it into the clicked template slot while placed cards show the disabled `已放置` state.
+- `npm.cmd run build` completed successfully after the budget-gate route/level rewrite.
+- Browser verification on `?page=internal&dev=1` confirmed the budget-gate acceptance section renders the five required cases with the expected routes and no failed case marker.
 
 ## Current Repository Agreement
 

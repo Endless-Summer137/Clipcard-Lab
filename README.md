@@ -8,7 +8,7 @@ Main repository: https://github.com/Endless-Summer137/Clipcard-Lab.git
 
 The app separates shared mechanism logic from page-level demos:
 
-- `src/core/budgetGate.ts`: analysis budget and minimum necessary audio-window strategy.
+- `src/core/budgetGate.ts`: analysis budget, route selection, and minimum necessary frame/audio strategy.
 - `src/core/adGate.ts`: ad-fit decision and mandatory ad disclosure metadata.
 - `src/core/cardEngine.ts`: local rule-based clip-card generation, with an input shape ready for future AI APIs.
 - `src/core/cardStore.ts`: local `localStorage` card persistence.
@@ -47,8 +47,9 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 - Sample clip scenarios: 美食探店, 游戏高光, 旅行风景, 低信息片段.
 - Real video test mode for local `mp4` / `webm` uploads through the hidden demo-material configuration mode.
 - Clip start/end selection with seconds inputs and demo defaults.
-- Analysis budget gate that chooses Level 0 / Level 1 / Level 2 / Level 3 / Level 4 before future media analysis.
-- Minimum necessary audio-window strategy for each card-generating budget level, with Level 4 reserved for audio/subtitle-led high-information clips.
+- Analysis budget gate that starts from trigger mode and segment duration, then revises the level with title, description, tags, transcript, platform signals, and visual signals.
+- Budget routes for scene-first, visual-step-first, transcript-first, OCR-first, motion/audio-first, and low-information clips.
+- Minimum necessary frame/audio strategy for Level 0-3, with OCR / transcript / visual-step needs exposed for the internal mechanism page.
 - Weak-assertion clip card generation based on user-entered title, description, tags, transcript, segment note, and ad candidate.
 - Level 0 / Level 1 / Level 2 card generation differences for waiting-to-complete cards, lightweight moment cards, and standard segment cards.
 - Local `localStorage` card persistence and event logging.
