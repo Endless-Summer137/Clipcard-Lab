@@ -14,14 +14,14 @@ The app separates shared mechanism logic from page-level demos:
 - `src/core/cardStore.ts`: local `localStorage` card persistence.
 - `src/core/eventStore.ts`: local `localStorage` user event logging.
 - `src/core/trendAnalytics.ts`: video-time bucket aggregation for creator trend charts.
-- `src/core/clipbookTemplateStore.ts`: local clipbook template images and percentage-based slot configuration.
+- `src/core/clipbookTemplateStore.ts`: local clipbook template images, natural image size metadata, and percentage-based slot configuration.
 - `src/core/clipbookPlacementStore.ts`: local per-template slot-to-card placement persistence.
 
 Page responsibilities are intentionally split:
 
 - `DemoFeedPage`: user-facing short-video feed demo. It calls the core modules and shows the generated card result, not the internal gates.
 - `ProfilePage`: short-video-style personal homepage with creator-center and card entrances.
-- `CreatorCenter`: reads stored cards/events and shows creator-facing trend summaries.
+- `CreatorCenter`: phone-width creator subpage with trend summaries, lightweight insights, and a summarized ad-fit status.
 - `InternalLab`: shows budget/ad/card-engine internals for explanation and review.
 - `MyCardsPage`: light themed three-column card library with card detail view.
 - `ClipbookPage`: light themed clipbook template demo with FPS, landscape, and blank-book templates.
@@ -54,6 +54,7 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 - Cover-style card thumbnails that use saved video-frame covers when available and fall back to soft light-card surfaces for low-information clips.
 - A basic card clipbook flow with selectable templates, percentage-based card slots, placed-card removal, placeholder share/publish actions, and disabled duplicate placement in the card picker.
 - Dev-only clipbook template image upload plus numeric `x/y/w/h` slot adjustment for configuring custom template layouts.
+- Uploaded clipbook template images render complete in the editor using their original aspect ratio, with slots anchored to the template image coordinate system.
 - A card dresser placeholder that keeps sticker/color customization separate from the clipbook editor.
 - Multi-metric 10-second trend buckets with `recharts`, including card generation, saves, shares, clipbook adds, and ad clicks.
 - Ad-fit gate decisions that require clear ad labeling and do not present ads as neutral AI advice.

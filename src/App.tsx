@@ -94,7 +94,7 @@ export default function App() {
       case 'internalLab':
         return <InternalLab />;
       case 'creatorCenter':
-        return <CreatorCenter />;
+        return <CreatorCenter onBack={() => navigate('profile', { dev: false })} />;
       case 'profile':
         return <ProfilePage onNavigate={navigate} />;
       case 'myCards':

@@ -34,6 +34,8 @@
 - Moved sticker capability out of the clipbook editor and into a new `Card Dresser` route/entry, keeping the dresser as a light placeholder for future color and sticker editing.
 - Added `clipbookTemplateStore` and `clipbookPlacementStore` for local template image/slot configuration and per-slot card placement persistence.
 - Upgraded `ClipbookPage` with FPS/landscape/blank percentage-based slots, dev-only template image upload, dev-only numeric `x/y/w/h` slot adjustment, arbitrary slot selection, placed-card removal, and disabled gray `已放置` cards in the picker.
+- Fixed clipbook template rendering so uploaded template images are measured through `naturalWidth` / `naturalHeight`, stored with aspect metadata, rendered with `object-contain`, and overlaid with slots in the template image coordinate system.
+- Reworked `CreatorCenter` into a light, phone-width app subpage with a profile return arrow, three-video selector, compact metrics, mobile-sized trend chart, natural-language insights, and a summarized ad-fit section.
 
 ## Validation
 
@@ -56,6 +58,9 @@
 - `npm.cmd run build` completed successfully after the clipbook slot/dresser update.
 - Browser verification confirmed the short-video feed footer uses `rgba(18, 18, 18, 0.82)` with blur, profile card center exposes the new `卡片妆台` entry, `?page=dresser` renders the dresser placeholder, normal clipbook mode hides template configuration and sticker presets, `?page=clipbook&dev=1` shows template upload plus 12 FPS slot inputs, and placed cards become gray/disabled with an `已放置` marker in the slot picker.
 - Source and type-build validation confirmed the new app-level card delete prompt removes the card, writes `card_deleted`, refreshes visible lists through `onDeleted`, and clears clipbook placements for the deleted card.
+- `npm.cmd run build` completed successfully after the template-ratio and creator-center shape update.
+- Source validation confirmed the clipbook edit canvas no longer uses a fixed `aspect-[4/5]` for uploaded templates, uploaded template images use `object-contain`, template metadata includes natural dimensions/aspect/orientation, and `CreatorCenter` no longer renders as a wide dark workbench.
+- In-app browser verification was not repeated for this final pass because the Browser session was stuck on a previously crashed `data:` page and the Browser tool refused further actions by URL policy.
 
 ## Current Repository Agreement
 

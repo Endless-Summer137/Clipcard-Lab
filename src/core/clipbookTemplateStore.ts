@@ -12,6 +12,10 @@ export interface ClipbookTemplate {
   name: string;
   type: 'fps' | 'landscape' | 'blank' | 'custom';
   image?: string;
+  imageNaturalWidth?: number;
+  imageNaturalHeight?: number;
+  aspectRatio?: number;
+  orientation?: 'landscape' | 'portrait' | 'square';
   slots: ClipbookSlot[];
 }
 
@@ -22,6 +26,10 @@ export const defaultClipbookTemplates: ClipbookTemplate[] = [
     id: 'fps',
     name: 'FPS 游戏风格模板',
     type: 'fps',
+    imageNaturalWidth: 1600,
+    imageNaturalHeight: 900,
+    aspectRatio: 16 / 9,
+    orientation: 'landscape',
     slots: [
       { id: 'slot-1', x: 7, y: 6, w: 26, h: 22, label: '高光 1' },
       { id: 'slot-2', x: 37, y: 6, w: 26, h: 22, label: '高光 2' },
@@ -32,6 +40,10 @@ export const defaultClipbookTemplates: ClipbookTemplate[] = [
     id: 'landscape',
     name: '风景模板',
     type: 'landscape',
+    imageNaturalWidth: 1200,
+    imageNaturalHeight: 1500,
+    aspectRatio: 4 / 5,
+    orientation: 'portrait',
     slots: [
       { id: 'slot-1', x: 8, y: 12, w: 40, h: 28, label: '灵感 1' },
       { id: 'slot-2', x: 52, y: 12, w: 40, h: 28, label: '灵感 2' },
@@ -43,6 +55,10 @@ export const defaultClipbookTemplates: ClipbookTemplate[] = [
     id: 'blank',
     name: '空白书模板',
     type: 'blank',
+    imageNaturalWidth: 1200,
+    imageNaturalHeight: 1500,
+    aspectRatio: 4 / 5,
+    orientation: 'portrait',
     slots: [
       { id: 'slot-1', x: 9, y: 16, w: 38, h: 27, label: '页面 1' },
       { id: 'slot-2', x: 53, y: 16, w: 38, h: 27, label: '页面 2' },

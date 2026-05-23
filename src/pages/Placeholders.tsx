@@ -102,9 +102,9 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
   async function onTemplateImageUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    const image = await fileToDataUrl(file);
-    const next = { ...selectedTemplate, image };
-    updateClipbookTemplate(selectedTemplate.id, { image });
+    const imageMeta = await readTemplateImage(file);
+    const next = { ...selectedTemplate, ...imageMeta };
+    updateClipbookTemplate(selectedTemplate.id, imageMeta);
     refreshTemplate(next);
   }
 
@@ -116,6 +116,24 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
       slots: selectedTemplate.slots.map((item) => (item.id === slot.id ? { ...item, [key]: safeValue } : item)),
     };
     refreshTemplate(next);
+  }
+
+  function updateTemplateImageSize(imageNaturalWidth: number, imageNaturalHeight: number) {
+    if (
+      selectedTemplate.imageNaturalWidth === imageNaturalWidth &&
+      selectedTemplate.imageNaturalHeight === imageNaturalHeight
+    ) {
+      return;
+    }
+
+    const patch = {
+      imageNaturalWidth,
+      imageNaturalHeight,
+      aspectRatio: imageNaturalWidth / imageNaturalHeight,
+      orientation: getTemplateOrientation(imageNaturalWidth, imageNaturalHeight),
+    };
+    updateClipbookTemplate(selectedTemplate.id, patch);
+    refreshTemplate({ ...selectedTemplate, ...patch });
   }
 
   return (
@@ -197,6 +215,7 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
             getCardInSlot={getCardInSlot}
             onSlotClick={setSelectingSlotId}
             onClearSlot={clearSlot}
+            onImageMeasure={updateTemplateImageSize}
           />
           <div className="mt-4 grid grid-cols-2 gap-3">
             <button type="button" onClick={() => setFeedback('分享手账功能已预留。')} className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white">
@@ -228,35 +247,51 @@ function TemplateCanvas({
   getCardInSlot,
   onSlotClick,
   onClearSlot,
+  onImageMeasure,
 }: {
   template: ClipbookTemplate;
   cards: SegmentCard[];
   getCardInSlot: (slotId: string) => SegmentCard | null;
   onSlotClick: (slotId: string) => void;
   onClearSlot: (slotId: string) => void;
+  onImageMeasure: (width: number, height: number) => void;
 }) {
+  const canvasRatio = getTemplateAspectRatio(template);
+
   return (
-    <div className="relative mt-4 aspect-[4/5] overflow-hidden rounded-[24px] border border-stone-100 bg-[#f8f4e9] shadow-inner">
-      {template.image ? <img src={template.image} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <BuiltInTemplateBackground template={template} />}
-      {template.slots.map((slot) => {
-        const card = getCardInSlot(slot.id);
-        return (
-          <button
-            key={slot.id}
-            type="button"
-            onClick={() => onSlotClick(slot.id)}
-            className="group absolute rounded-2xl border-2 border-dashed border-white/80 bg-white/24 p-1 shadow-sm backdrop-blur-[1px] transition hover:border-emerald-300 hover:bg-emerald-50/50"
-            style={{ left: `${slot.x}%`, top: `${slot.y}%`, width: `${slot.w}%`, height: `${slot.h}%` }}
-          >
-            {card ? (
-              <SlotCard card={card} onClear={(event) => { event.stopPropagation(); onClearSlot(slot.id); }} />
-            ) : (
-              <span className="flex h-full items-center justify-center text-2xl font-light text-white drop-shadow group-hover:text-emerald-700">+</span>
-            )}
-          </button>
-        );
-      })}
-      {cards.length === 0 ? <p className="absolute inset-x-6 bottom-6 rounded-2xl bg-white/80 px-4 py-3 text-center text-xs text-stone-500">先在视频里保存一张卡片，再放入槽位。</p> : null}
+    <div className="mt-4 overflow-x-auto rounded-[24px] border border-stone-100 bg-[#f8f4e9] p-2 shadow-inner">
+      <div
+        className="relative mx-auto w-full min-w-[280px] overflow-hidden rounded-[18px] bg-white"
+        style={{ aspectRatio: canvasRatio }}
+      >
+        {template.image ? (
+          <img
+            src={template.image}
+            alt=""
+            onLoad={(event) => onImageMeasure(event.currentTarget.naturalWidth || 1, event.currentTarget.naturalHeight || 1)}
+            className="absolute inset-0 h-full w-full object-contain"
+          />
+        ) : <BuiltInTemplateBackground template={template} />}
+        {template.slots.map((slot) => {
+          const card = getCardInSlot(slot.id);
+          return (
+            <button
+              key={slot.id}
+              type="button"
+              onClick={() => onSlotClick(slot.id)}
+              className="group absolute rounded-2xl border-2 border-dashed border-white/85 bg-white/24 p-1 shadow-sm backdrop-blur-[1px] transition hover:border-emerald-300 hover:bg-emerald-50/55 active:border-emerald-300 active:bg-emerald-50/55"
+              style={{ left: `${slot.x}%`, top: `${slot.y}%`, width: `${slot.w}%`, height: `${slot.h}%` }}
+            >
+              {card ? (
+                <SlotCard card={card} onClear={(event) => { event.stopPropagation(); onClearSlot(slot.id); }} />
+              ) : (
+                <span className="flex h-full items-center justify-center text-2xl font-light text-white drop-shadow group-hover:text-emerald-700 group-active:text-emerald-700">+</span>
+              )}
+            </button>
+          );
+        })}
+        {cards.length === 0 ? <p className="absolute inset-x-6 bottom-6 rounded-2xl bg-white/80 px-4 py-3 text-center text-xs text-stone-500">先在视频里保存一张卡片，再放入槽位。</p> : null}
+      </div>
     </div>
   );
 }
@@ -346,10 +381,40 @@ function getTemplateDescription(template: ClipbookTemplate) {
   return '米白纸张和轻微书脊感，可输入书名。';
 }
 
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
+function getTemplateAspectRatio(template: ClipbookTemplate) {
+  if (template.imageNaturalWidth && template.imageNaturalHeight) {
+    return `${template.imageNaturalWidth} / ${template.imageNaturalHeight}`;
+  }
+
+  if (template.aspectRatio) return String(template.aspectRatio);
+  return template.type === 'fps' ? '16 / 9' : '4 / 5';
+}
+
+function getTemplateOrientation(width: number, height: number): ClipbookTemplate['orientation'] {
+  if (Math.abs(width - height) <= 1) return 'square';
+  return width > height ? 'landscape' : 'portrait';
+}
+
+function readTemplateImage(file: File) {
+  return new Promise<Pick<ClipbookTemplate, 'image' | 'imageNaturalWidth' | 'imageNaturalHeight' | 'aspectRatio' | 'orientation'>>((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onload = () => {
+      const image = String(reader.result || '');
+      const preview = new Image();
+      preview.onload = () => {
+        const imageNaturalWidth = preview.naturalWidth || 1;
+        const imageNaturalHeight = preview.naturalHeight || 1;
+        resolve({
+          image,
+          imageNaturalWidth,
+          imageNaturalHeight,
+          aspectRatio: imageNaturalWidth / imageNaturalHeight,
+          orientation: getTemplateOrientation(imageNaturalWidth, imageNaturalHeight),
+        });
+      };
+      preview.onerror = () => reject(new Error('模板图尺寸读取失败，请重新选择文件。'));
+      preview.src = image;
+    };
     reader.onerror = () => reject(new Error('模板图读取失败，请重新选择文件。'));
     reader.readAsDataURL(file);
   });
