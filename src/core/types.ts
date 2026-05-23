@@ -26,6 +26,45 @@ export interface Keyframe {
   source: KeyframeSource;
 }
 
+export type VisionProvider = 'zhipu' | 'aliyun' | 'openai' | 'mock';
+export type AnalysisSource = 'vision_api' | 'rule_fallback';
+
+export interface VisionAnalysis {
+  confidence: 'low' | 'medium' | 'high';
+  contentType: 'food' | 'game' | 'travel' | 'people' | 'low_info' | 'unknown';
+  visualSummary: string;
+  visibleObjects: string[];
+  likelyScene: string;
+  cardSuggestion: {
+    shouldGenerateFullCard: boolean;
+    suggestedCardType: string;
+    reason: string;
+  };
+  limitations: string[];
+}
+
+export interface AnalyzeFramesRequest {
+  videoId: string;
+  videoTitle: string;
+  videoDescription?: string;
+  activityName?: string;
+  segmentStart: number;
+  segmentEnd: number;
+  keyframes: Array<{
+    time: number;
+    image: string;
+  }>;
+}
+
+export interface AnalyzeFramesResponse {
+  ok: boolean;
+  provider?: VisionProvider;
+  visionAnalysis?: VisionAnalysis;
+  error?: string;
+  fallback?: boolean;
+  todayCallCount?: number;
+}
+
 export type BudgetRoute =
   | 'visual_scene_first'
   | 'visual_step_first'
@@ -134,6 +173,8 @@ export interface CardEngineInput {
   activityName?: string;
   activityCta?: string;
   targetClipbookTemplate?: string;
+  visionAnalysis?: VisionAnalysis;
+  analysisSource?: AnalysisSource;
 }
 
 export interface SegmentCard {
@@ -159,6 +200,8 @@ export interface SegmentCard {
   coverSource?: CardCoverSource;
   keyframes?: Keyframe[];
   budgetResult?: BudgetResult;
+  visionAnalysis?: VisionAnalysis;
+  analysisSource?: AnalysisSource;
   activityId?: string;
   activityName?: string;
   activityCta?: string;

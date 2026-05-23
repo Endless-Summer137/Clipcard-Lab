@@ -9,6 +9,7 @@ import { recordEvent } from '../core/eventStore';
 import type { BudgetResult, CardCoverSource, Keyframe, KeyframeSource, SegmentCard, SegmentSource, TriggerMode } from '../core/types';
 import { createVideoObjectUrl } from '../core/videoBlobStore';
 import { captureCurrentFrame, captureFrameAt, captureKeyframes } from '../core/videoFrameCapture';
+import { analyzeFramesForCard } from '../core/visionAnalysisClient';
 import { CardDetailView, CardQuickPreview } from './CardDetailView';
 import { defaultDemoVideos, readDemoConfig, type DemoVideoConfig } from './demoData';
 
@@ -508,6 +509,18 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
       const budgetResult = getBudgetForSegment(segment);
       const cover = await getCover(segment);
       const keyframes = await getKeyframes(segment, budgetResult, cover);
+      const visionResponse = keyframes.length > 0
+        ? await analyzeFramesForCard({
+          videoId: video.videoId,
+          videoTitle: video.videoTitle,
+          videoDescription: video.videoDescription,
+          activityName: video.activityName,
+          segmentStart: segment.segmentStart,
+          segmentEnd: segment.segmentEnd,
+          keyframes,
+        })
+        : { ok: false, error: '没有可分析的关键帧。' };
+      const analysisSource = visionResponse.ok && visionResponse.visionAnalysis ? 'vision_api' as const : 'rule_fallback' as const;
       const adDecision = runAdGate({
         videoId: video.videoId,
         tags: video.tags,
@@ -539,6 +552,8 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
         } : {}),
         ...cover,
         keyframes,
+        visionAnalysis: visionResponse.visionAnalysis,
+        analysisSource,
       });
 
       saveCard(card);
@@ -559,6 +574,10 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
           keyframeCount: card.keyframes?.length ?? 0,
           frameCount: budgetResult.frameCount,
           costLevel: budgetResult.costLevel,
+          analysisSource,
+          visionProvider: visionResponse.provider,
+          visionFallback: !visionResponse.ok || Boolean(visionResponse.fallback),
+          visionContentType: visionResponse.visionAnalysis?.contentType,
           hasCoverImage: Boolean(card.coverImage),
         },
       });

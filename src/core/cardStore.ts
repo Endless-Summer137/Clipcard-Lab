@@ -48,6 +48,8 @@ function normalizeCard(card: SegmentCard): SegmentCard {
     keyframes: Array.isArray(card.keyframes)
       ? card.keyframes.filter((frame) => frame?.image && Number.isFinite(frame.time))
       : undefined,
+    analysisSource: card.analysisSource,
+    visionAnalysis: card.visionAnalysis,
     personalReflection: card.personalReflection?.text?.trim()
       ? {
         text: card.personalReflection.text.slice(0, 300),

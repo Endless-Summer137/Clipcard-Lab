@@ -10,6 +10,9 @@ function hasTag(tags: string[], keywords: string[]) {
 }
 
 function inferCardType(input: CardEngineInput) {
+  if (input.visionAnalysis?.cardSuggestion.shouldGenerateFullCard && input.visionAnalysis.cardSuggestion.suggestedCardType) {
+    return input.visionAnalysis.cardSuggestion.suggestedCardType;
+  }
   if (input.budgetResult.level === 0) return '待补充片段';
   if (input.budgetResult.level === 1) return '轻量瞬间卡';
   if (hasTag(input.tags, ['美食', '探店', '门店'])) return '美食探店卡';
@@ -20,9 +23,22 @@ function inferCardType(input: CardEngineInput) {
 }
 
 function getSourceText(input: CardEngineInput) {
+  if (input.analysisSource === 'vision_api' && input.visionAnalysis?.visualSummary) return input.visionAnalysis.visualSummary;
   if (input.transcriptExcerpt.trim()) return input.transcriptExcerpt.trim();
   if (input.segmentNote.trim()) return input.segmentNote.trim();
   return input.videoDescription.trim();
+}
+
+function getEvidenceNote(input: CardEngineInput, fallback: string) {
+  if (input.analysisSource === 'vision_api') {
+    return '本卡片主要基于选段关键帧画面生成，尚未分析音频、口播或背景音乐。';
+  }
+
+  if (input.analysisSource === 'rule_fallback') {
+    return '当前未完成视觉分析，卡片基于标题、活动信息和片段时间生成。';
+  }
+
+  return fallback;
 }
 
 export function generateSegmentCard(input: CardEngineInput): SegmentCard {
@@ -39,6 +55,8 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
     coverSource: input.coverSource,
     keyframes: input.keyframes,
     budgetResult: input.budgetResult,
+    visionAnalysis: input.visionAnalysis,
+    analysisSource: input.analysisSource,
   };
   const activityFields = {
     activityId: input.activityId,
@@ -65,7 +83,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
       title: '需要补充信息的片段',
       summary: '当前片段信息不足，已保存为待补充片段。',
       saveReason: '用户可能只是想暂存这一刻，等待后续补充片段说明、字幕、视觉识别或音频转写。',
-      evidenceNote: '当前没有足够的片段说明或字幕/口播摘录；系统不能假装已经看懂视频画面。',
+      evidenceNote: getEvidenceNote(input, '当前没有足够的片段说明或字幕/口播摘录；系统不能假装已经看懂视频画面。'),
       adDecision: input.adDecision,
       createdAt,
       ...coverFields,
@@ -86,7 +104,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
       saveReason: hasTranscript
         ? '用户可能想保存这一句口播、字幕或关键表达，方便稍后复看。'
         : '用户可能想保存这一刻出现的画面、动作或情绪节点，方便稍后回看。',
-      evidenceNote: '本卡片按 Level 1 轻量预算生成，适合保存当前瞬间；关键帧和最小音频窗口只作为后续识别准备。',
+      evidenceNote: getEvidenceNote(input, '本卡片按 Level 1 轻量预算生成，适合保存当前瞬间；关键帧和最小音频窗口只作为后续识别准备。'),
       adDecision: input.adDecision,
       createdAt,
       ...coverFields,
@@ -106,9 +124,9 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
     saveReason: hasTranscript
       ? '用户可能想保存这段口播、字幕或关键表达，方便稍后复看。'
       : '用户可能想保存这段画面或说明中出现的兴趣点，方便稍后复看。',
-    evidenceNote: hasTranscript
+    evidenceNote: getEvidenceNote(input, hasTranscript
       ? '本卡片优先基于字幕/口播摘录生成，并结合视频简介、标签和片段说明；当前未假装调用视觉或音频模型。'
-      : '本卡片基于视频简介、标签和片段说明生成；当前未接入视觉/音频模型，不能自动理解画面或声音。',
+      : '本卡片基于视频简介、标签和片段说明生成；当前未接入视觉/音频模型，不能自动理解画面或声音。'),
     adDecision: input.adDecision,
     createdAt,
     ...coverFields,
