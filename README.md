@@ -14,7 +14,7 @@ The app separates shared mechanism logic from page-level demos:
 - `src/core/cardStore.ts`: local `localStorage` card persistence under `clipcard.cards`, with older-card normalization.
 - `src/core/eventStore.ts`: local `localStorage` user event logging.
 - `src/core/trendAnalytics.ts`: video-time bucket aggregation for creator trend charts.
-- `src/core/clipbookTemplateStore.ts`: local clipbook template images under `clipcard.clipbookTemplates`, natural image size metadata, and percentage-based slot configuration.
+- `src/core/clipbookTemplateStore.ts`: local clipbook template images under `clipcard_clipbook_templates`, natural image size metadata, and percentage-based slot configuration.
 - `src/core/clipbookPlacementStore.ts`: local per-template slot-to-card placement persistence.
 
 Page responsibilities are intentionally split:
