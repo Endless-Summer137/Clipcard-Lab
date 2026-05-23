@@ -63,6 +63,11 @@ export interface AnalyzeFramesResponse {
   error?: string;
   fallback?: boolean;
   todayCallCount?: number;
+  debug?: {
+    provider?: VisionProvider;
+    hasApiKey: boolean;
+    error?: string;
+  };
 }
 
 export type BudgetRoute =

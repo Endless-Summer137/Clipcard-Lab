@@ -2,6 +2,10 @@ import type { AnalyzeFramesRequest, AnalyzeFramesResponse, Keyframe, VisionAnaly
 import { getServerEnv } from './env';
 import { analyzeFrames, analyzeFramesWithMock, getVisionProvider, hasProviderKey } from './visionProviders';
 
+declare const console: {
+  info: (message?: unknown, ...optionalParams: unknown[]) => void;
+};
+
 const MAX_BODY_CHARS = 9_000_000;
 const REAL_DAILY_LIMIT = 10;
 
@@ -13,13 +17,17 @@ interface VisionApiStatus {
   recentVisionAnalysis?: VisionAnalysis;
   recentKeyframes?: Keyframe[];
   error?: string;
+  debug?: AnalyzeFramesResponse['debug'];
 }
 
 let usageDate = getDateKey();
 let realCallCount = 0;
 let recentStatus: VisionApiStatus | null = null;
+let hasLoggedEnvDiagnostics = false;
 
 export function createAnalyzeFramesMiddleware() {
+  logVisionEnvDiagnostics();
+
   return (request: any, response: any, next?: () => void) => {
     const path = (request.url ?? '').split('?')[0];
     if (path === '/api/analyze-frames/status' && request.method === 'GET') {
@@ -38,8 +46,9 @@ export function createAnalyzeFramesMiddleware() {
       .catch((error) => {
         const message = error instanceof Error ? error.message : '视觉分析接口异常。';
         const status = getStatus();
-        recentStatus = { ...status, fallback: true, error: message };
-        writeJson(response, 500, { ok: false, provider: status.provider, error: message, fallback: true, todayCallCount: status.todayCallCount } satisfies AnalyzeFramesResponse);
+        const debug = createDebug(status.provider, message);
+        recentStatus = { ...status, fallback: true, error: message, debug };
+        writeJson(response, 500, { ok: false, provider: status.provider, error: message, fallback: true, todayCallCount: status.todayCallCount, debug } satisfies AnalyzeFramesResponse);
       });
   };
 }
@@ -50,9 +59,11 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
   const configuredProvider = getVisionProvider(env);
   const input = sanitizeRequest(body);
   const provider = configuredProvider;
+  const debug = createDebug(provider);
 
   if (provider !== 'mock') {
     if (!hasProviderKey(provider, env)) {
+      const missingKeyDebug = createDebug(provider, 'missing_api_key');
       recentStatus = {
         configuredProvider,
         provider,
@@ -60,6 +71,7 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
         fallback: true,
         recentKeyframes: input.keyframes.map(toDebugKeyframe),
         error: 'missing_api_key',
+        debug: missingKeyDebug,
       };
       return {
         ok: false,
@@ -67,6 +79,7 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
         error: 'missing_api_key',
         fallback: true,
         todayCallCount: realCallCount,
+        debug: missingKeyDebug,
       };
     }
 
@@ -80,6 +93,7 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
         recentVisionAnalysis: mockAnalysis,
         recentKeyframes: input.keyframes.map(toDebugKeyframe),
         error: '今日真实视觉 API 调用次数已达上限，已切到 mock。',
+        debug,
       };
       return {
         ok: true,
@@ -87,6 +101,7 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
         visionAnalysis: mockAnalysis,
         fallback: true,
         todayCallCount: realCallCount,
+        debug,
       };
     }
 
@@ -102,6 +117,7 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
       fallback: false,
       recentVisionAnalysis: visionAnalysis,
       recentKeyframes: input.keyframes.map(toDebugKeyframe),
+      debug,
     };
     return {
       ok: true,
@@ -109,9 +125,11 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
       visionAnalysis,
       fallback: false,
       todayCallCount: realCallCount,
+      debug,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : '视觉模型调用失败。';
+    const errorDebug = createDebug(provider, message);
     recentStatus = {
       configuredProvider,
       provider,
@@ -119,6 +137,7 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
       fallback: true,
       recentKeyframes: input.keyframes.map(toDebugKeyframe),
       error: message,
+      debug: errorDebug,
     };
     return {
       ok: false,
@@ -126,6 +145,7 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
       error: message,
       fallback: true,
       todayCallCount: realCallCount,
+      debug: errorDebug,
     };
   }
 }
@@ -178,6 +198,7 @@ function getStatus(): VisionApiStatus {
     provider: configuredProvider,
     todayCallCount: realCallCount,
     fallback: false,
+    debug: createDebug(configuredProvider),
   };
 }
 
@@ -204,4 +225,23 @@ function toDebugKeyframe(frame: AnalyzeFramesRequest['keyframes'][number]): Keyf
     image: frame.image,
     source: 'sampled_frame',
   };
+}
+
+function createDebug(provider: VisionProvider, error?: string): AnalyzeFramesResponse['debug'] {
+  const env = getServerEnv();
+  return {
+    provider,
+    hasApiKey: hasProviderKey(provider, env),
+    error,
+  };
+}
+
+function logVisionEnvDiagnostics() {
+  if (hasLoggedEnvDiagnostics) return;
+  hasLoggedEnvDiagnostics = true;
+  const env = getServerEnv();
+  const provider = getVisionProvider(env);
+  const key = env.ZHIPU_API_KEY?.trim() ?? '';
+  const keyPreview = key ? `${key.slice(0, 4)}****${key.slice(-4)}` : 'none';
+  console.info(`[ClipCard vision] VISION_PROVIDER=${provider} hasZhipuKey=${Boolean(key)} zhipuKey=${keyPreview}`);
 }
