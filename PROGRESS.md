@@ -20,6 +20,12 @@
 - Added a short-video-style `ProfilePage` with platform-like profile actions, two creator-center entrances, a `卡片` tab, and simple routes to `MyCardsPage` and `ClipbookPage`.
 - Polished `ProfilePage` navigation and profile copy: restored the bottom app Tab on profile, removed the duplicate handle line, corrected static profile metrics, and kept only the feature-grid creator-center entry.
 - Moved the profile `编辑资料` placeholder into the metrics row as a small capsule button so it no longer competes with the feature entry grid.
+- Shifted the user-facing profile, card library, and clipbook surfaces toward a light lifestyle visual style with soft card backgrounds and shadows.
+- Replaced the profile `卡片` tab placeholder with a card center that includes `我的卡片`, `卡片手账`, a three-template library preview, and recent saved card previews.
+- Added a reusable `CardDetailView` with top action icons, scrollable content, themed card surfaces, and a fixed left-bottom ad disclosure block when ad decisions allow or limit display.
+- Upgraded `MyCardsPage` into a light three-column card grid with themed mini cards and card-detail opening behavior.
+- Upgraded `ClipbookPage` into a basic template demo for FPS, landscape, and blank-book templates, including card slots, blank-book title input, card adding, placeholder share/publish actions, and basic sticker presets.
+- Updated `cardEngine` local rules so Level 0 creates a `待补充片段`, Level 1 creates a `轻量瞬间卡`, and Level 2+ produces standard content-typed cards.
 
 ## Validation
 
@@ -36,6 +42,7 @@
 - `npm.cmd run build` completed successfully after the navigation/profile update. Browser verification confirmed clean default demo mode, bottom-tab navigation to profile, profile card-tab entries, my-cards and clipbook return paths, `?dev=1` development navigation, direct `page=` URLs, `Ctrl+U` admin entry, and `Esc` return to `?page=demo&dev=1`.
 - `npm.cmd run build` completed successfully after the `ProfilePage` polish. Browser verification confirmed profile keeps the bottom Tab, `首页` returns to `?page=demo`, the duplicate `clipcard_demo` line is gone, metrics read `1.2w / 86 / 128 / 2,026`, and only one visible creator-center entry remains.
 - `npm.cmd run build` completed successfully after the profile metrics-row adjustment. Browser verification confirmed `编辑资料` appears once as a small same-row capsule button beside the metrics.
+- `npm.cmd run build` completed successfully after the light card/clipbook update. Browser verification confirmed profile light styling, card center entries/templates/recent previews, three-column `我的卡片`, card detail top icons and scrollable content, fixed ad disclosure, clipbook FPS/landscape/blank templates, blank-book title input, slots, stickers, and share/publish placeholders.
 
 ## Current Repository Agreement
 

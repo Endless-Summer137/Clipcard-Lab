@@ -21,7 +21,8 @@ Page responsibilities are intentionally split:
 - `ProfilePage`: short-video-style personal homepage with creator-center and card entrances.
 - `CreatorCenter`: reads stored cards/events and shows creator-facing trend summaries.
 - `InternalLab`: shows budget/ad/card-engine internals for explanation and review.
-- `MyCardsPage` and `ClipbookPage`: placeholders for future card library and clipbook flows.
+- `MyCardsPage`: light themed three-column card library with card detail view.
+- `ClipbookPage`: light themed clipbook template demo with FPS, landscape, and blank-book templates.
 
 ## Page URLs
 
@@ -43,7 +44,10 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 - Analysis budget gate that chooses Level 0 / Level 1 / Level 2 / Level 3 / Level 4 before future media analysis.
 - Minimum necessary audio-window strategy for each card-generating budget level, with Level 4 reserved for audio/subtitle-led high-information clips.
 - Weak-assertion clip card generation based on user-entered title, description, tags, transcript, segment note, and ad candidate.
+- Level 0 / Level 1 / Level 2 card generation differences for waiting-to-complete cards, lightweight moment cards, and standard segment cards.
 - Local `localStorage` card persistence and event logging.
+- Collectible ClipCard card visuals with themed mini cards, detail view, fixed ad disclosure area, and scrollable card content.
+- A basic card clipbook flow with selectable templates, card slots, placeholder share/publish actions, and a small sticker preset area.
 - Multi-metric 10-second trend buckets with `recharts`, including card generation, saves, shares, clipbook adds, and ad clicks.
 - Ad-fit gate decisions that require clear ad labeling and do not present ads as neutral AI advice.
 - A shared-core architecture so the short-video feed, creator center, internal lab, future card library, and future clipbook use the same card, event, trend, budget, and ad logic.
