@@ -12,6 +12,7 @@ export interface ClipbookTemplate {
   name: string;
   type: 'fps' | 'landscape' | 'blank' | 'custom';
   image?: string;
+  imageFileName?: string;
   imageNaturalWidth?: number;
   imageNaturalHeight?: number;
   aspectRatio?: number;
@@ -31,9 +32,9 @@ export const defaultClipbookTemplates: ClipbookTemplate[] = [
     aspectRatio: 16 / 9,
     orientation: 'landscape',
     slots: [
-      { id: 'slot-1', x: 7, y: 6, w: 26, h: 22, label: '高光 1' },
-      { id: 'slot-2', x: 37, y: 6, w: 26, h: 22, label: '高光 2' },
-      { id: 'slot-3', x: 67, y: 6, w: 26, h: 22, label: '高光 3' },
+      { id: 'slot-1', x: 7, y: 6, w: 26, h: 31, label: '高光 1' },
+      { id: 'slot-2', x: 37, y: 6, w: 26, h: 31, label: '高光 2' },
+      { id: 'slot-3', x: 67, y: 6, w: 26, h: 31, label: '高光 3' },
     ],
   },
   {
@@ -60,13 +61,40 @@ export const defaultClipbookTemplates: ClipbookTemplate[] = [
     aspectRatio: 4 / 5,
     orientation: 'portrait',
     slots: [
-      { id: 'slot-1', x: 9, y: 16, w: 38, h: 27, label: '页面 1' },
-      { id: 'slot-2', x: 53, y: 16, w: 38, h: 27, label: '页面 2' },
-      { id: 'slot-3', x: 9, y: 55, w: 38, h: 27, label: '页面 3' },
-      { id: 'slot-4', x: 53, y: 55, w: 38, h: 27, label: '页面 4' },
+      { id: 'slot-1', x: 8, y: 14, w: 40, h: 26, label: '页面 1' },
+      { id: 'slot-2', x: 52, y: 14, w: 40, h: 26, label: '页面 2' },
+      { id: 'slot-3', x: 8, y: 52, w: 40, h: 30, label: '页面 3' },
+      { id: 'slot-4', x: 52, y: 52, w: 40, h: 30, label: '页面 4' },
     ],
   },
 ];
+
+const legacyDefaultSlots: Record<string, ClipbookSlot[]> = {
+  fps: [
+    { id: 'slot-1', x: 7, y: 6, w: 26, h: 22 },
+    { id: 'slot-2', x: 37, y: 6, w: 26, h: 22 },
+    { id: 'slot-3', x: 67, y: 6, w: 26, h: 22 },
+  ],
+  blank: [
+    { id: 'slot-1', x: 9, y: 16, w: 38, h: 27 },
+    { id: 'slot-2', x: 53, y: 16, w: 38, h: 27 },
+    { id: 'slot-3', x: 9, y: 55, w: 38, h: 27 },
+    { id: 'slot-4', x: 53, y: 55, w: 38, h: 27 },
+  ],
+};
+
+function slotsMatch(a: ClipbookSlot[] = [], b: ClipbookSlot[] = []) {
+  if (a.length !== b.length) return false;
+  return a.every((slot, index) => {
+    const expected = b[index];
+    return expected &&
+      slot.id === expected.id &&
+      slot.x === expected.x &&
+      slot.y === expected.y &&
+      slot.w === expected.w &&
+      slot.h === expected.h;
+  });
+}
 
 function readStoredTemplates(): ClipbookTemplate[] {
   try {
@@ -83,11 +111,19 @@ function writeTemplates(templates: ClipbookTemplate[]) {
 
 export function getClipbookTemplates() {
   const stored = readStoredTemplates();
-  return defaultClipbookTemplates.map((template) => ({
-    ...template,
-    ...stored.find((item) => item.id === template.id),
-    slots: stored.find((item) => item.id === template.id)?.slots ?? template.slots,
-  }));
+  return defaultClipbookTemplates.map((template) => {
+    const storedTemplate = stored.find((item) => item.id === template.id);
+    const storedSlots = storedTemplate?.slots;
+    const slots = storedSlots && !slotsMatch(storedSlots, legacyDefaultSlots[template.id])
+      ? storedSlots
+      : template.slots;
+
+    return {
+      ...template,
+      ...storedTemplate,
+      slots,
+    };
+  });
 }
 
 export function saveClipbookTemplate(template: ClipbookTemplate) {

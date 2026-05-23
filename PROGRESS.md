@@ -49,6 +49,9 @@
 - Added `segmentSource` and `sourceVideoTitle` to generated/stored cards, and normalized older stored cards when reading `clipcard.cards`.
 - Moved card access into `src/hooks/useClipCards`, shared by profile, my-cards, clipbook slots, and the picker, with save/delete/refresh helpers over the same `clipcard.cards` store.
 - Strengthened the clipbook picker so it refreshes cards when opened, renders visible `CardThumbnail` cards in a scrollable 72vh sheet, and shows dev-only card count / template / slot / placed-card ids.
+- Fixed clipbook template binding so the current preview, uploaded image metadata, filename display, slot list, placement writes, and dev `x/y/w/h` controls all follow `selectedTemplateId`.
+- Added a small migration for legacy FPS / blank-book default slots so older local template records do not keep overriding the current default slot geometry.
+- Hardened `CardThumbnail` rendering in the clipbook picker with full-width visible sizing and DOM markers, preventing the “cardStore has cards but the picker looks empty” failure mode.
 
 ## Validation
 
@@ -82,6 +85,8 @@
 - Browser verification on `?page=internal&dev=1` confirmed the budget-gate acceptance section renders the five required cases with the expected routes and no failed case marker.
 - `npm.cmd run build` completed successfully after the segment-source and card-store data-flow repair.
 - Browser verification confirmed the hidden config shows `defaultSegmentStart` / `defaultSegmentEnd` plus fallback explanation, the feed still generates the light quick preview, `MyCardsPage` and the clipbook picker both displayed 7 cards from the shared store, and selecting a card placed it into the clicked clipbook slot.
+- `npm.cmd run build` completed successfully after the clipbook template-binding and picker-visibility repair.
+- Browser verification on `?page=clipbook&dev=1` confirmed switching to `风景模板` updates the current preview title, filename fallback copy, four landscape slots, and dev slot inputs; switching to `空白书模板` shows the blank-book title and blank slots. Opening a landscape slot showed debug `cardStore` count 7 and rendered 7 visible picker thumbnails; selecting a card placed it into the clicked slot, and reopening another slot showed the placed card disabled with an `已放置` marker.
 
 ## Current Repository Agreement
 

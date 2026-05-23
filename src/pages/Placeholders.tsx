@@ -69,6 +69,7 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
     setPlacements(getClipbookPlacements(templateId));
     setSelectingSlotId(null);
     setFeedback('');
+    refreshCards();
   }
 
   function refreshTemplate(template: ClipbookTemplate) {
@@ -77,16 +78,16 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
 
   function placeCard(card: SegmentCard) {
     if (!selectingSlotId || placedCardIds.has(card.cardId)) return;
-    setClipbookPlacement({ templateId: selectedTemplate.id, slotId: selectingSlotId, cardId: card.cardId });
-    setPlacements(getClipbookPlacements(selectedTemplate.id));
+    setClipbookPlacement({ templateId: selectedTemplateId, slotId: selectingSlotId, cardId: card.cardId });
+    setPlacements(getClipbookPlacements(selectedTemplateId));
     refreshCards();
     setSelectingSlotId(null);
     setFeedback('已放入槽位。');
   }
 
   function clearSlot(slotId: string) {
-    removeClipbookPlacement(selectedTemplate.id, slotId);
-    setPlacements(getClipbookPlacements(selectedTemplate.id));
+    removeClipbookPlacement(selectedTemplateId, slotId);
+    setPlacements(getClipbookPlacements(selectedTemplateId));
     refreshCards();
   }
 
@@ -105,13 +106,14 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
     if (!file) return;
     const imageMeta = await readTemplateImage(file);
     const next = { ...selectedTemplate, ...imageMeta };
-    updateClipbookTemplate(selectedTemplate.id, imageMeta);
+    updateClipbookTemplate(selectedTemplateId, imageMeta);
     refreshTemplate(next);
+    event.target.value = '';
   }
 
   function updateSlot(slot: ClipbookSlot, key: 'x' | 'y' | 'w' | 'h', value: number) {
     const safeValue = Math.max(0, Math.min(100, value));
-    updateClipbookSlot(selectedTemplate.id, slot.id, { [key]: safeValue });
+    updateClipbookSlot(selectedTemplateId, slot.id, { [key]: safeValue });
     const next = {
       ...selectedTemplate,
       slots: selectedTemplate.slots.map((item) => (item.id === slot.id ? { ...item, [key]: safeValue } : item)),
@@ -133,7 +135,7 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
       aspectRatio: imageNaturalWidth / imageNaturalHeight,
       orientation: getTemplateOrientation(imageNaturalWidth, imageNaturalHeight),
     };
-    updateClipbookTemplate(selectedTemplate.id, patch);
+    updateClipbookTemplate(selectedTemplateId, patch);
     refreshTemplate({ ...selectedTemplate, ...patch });
   }
 
@@ -151,7 +153,7 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
             onClick={() => selectTemplate(template.id)}
             className={[
               'rounded-2xl border px-3 py-3 text-left shadow-sm transition',
-              selectedTemplate.id === template.id ? 'border-emerald-300 bg-white shadow-emerald-100' : 'border-white/70 bg-white/70 shadow-stone-200',
+              selectedTemplateId === template.id ? 'border-emerald-300 bg-white shadow-emerald-100' : 'border-white/70 bg-white/70 shadow-stone-200',
             ].join(' ')}
           >
             <h2 className="font-semibold">{template.name}</h2>
@@ -167,6 +169,9 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
             上传模板图
             <input type="file" accept="image/png,image/jpeg,image/webp" onChange={onTemplateImageUpload} className="mt-2 block w-full text-sm" />
           </label>
+          <p className="mt-2 text-xs text-stone-500">
+            {selectedTemplate.imageFileName ? `当前模板图：${selectedTemplate.imageFileName}` : `${selectedTemplate.name} 暂未上传模板图，正在使用内置占位背景。`}
+          </p>
           <div className="mt-4 grid gap-3">
             {selectedTemplate.slots.map((slot) => (
               <div key={slot.id} className="rounded-2xl bg-stone-50 p-3">
@@ -202,8 +207,14 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
             />
           ) : null}
         </div>
-        <p className="mt-2 text-sm text-stone-500">{selectedTemplate.type === 'blank' ? bookTitle : selectedTemplate.name}</p>
+        <p className="mt-2 text-sm font-medium text-stone-700">
+          当前手账：{selectedTemplate.type === 'blank' ? bookTitle : selectedTemplate.name}
+        </p>
+        <p className="mt-1 text-xs text-stone-500">
+          {selectedTemplate.imageFileName ? `模板图：${selectedTemplate.imageFileName}` : `${selectedTemplate.name} 待上传 / 使用内置占位背景`}
+        </p>
         <TemplateCanvas
+          key={selectedTemplateId}
           template={selectedTemplate}
           cards={cards}
           getCardInSlot={getCardInSlot}
@@ -226,7 +237,7 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
         <CardPickerModal
           placedCardIds={placedCardIds}
           devMode={devMode}
-          templateId={selectedTemplate.id}
+          templateId={selectedTemplateId}
           selectedSlotId={selectingSlotId}
           onClose={() => setSelectingSlotId(null)}
           onSelect={placeCard}
@@ -345,7 +356,7 @@ function CardPickerModal({
 
   useEffect(() => {
     refreshCards();
-  }, [refreshCards]);
+  }, [refreshCards, selectedSlotId, templateId]);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center bg-stone-900/35 px-4 backdrop-blur-sm">
@@ -361,9 +372,13 @@ function CardPickerModal({
             {cards.map((card) => {
               const placed = placedCardIds.has(card.cardId);
               return (
-                <div key={card.cardId} className="relative">
-                  <div className={placed ? 'pointer-events-none grayscale opacity-40' : ''}>
-                    <CardThumbnail card={card} onClick={() => onSelect(card)} />
+                <div key={card.cardId} className="relative block min-h-[120px] w-full">
+                  <div className={placed ? 'pointer-events-none grayscale opacity-45' : 'opacity-100'}>
+                    <CardThumbnail
+                      card={card}
+                      onClick={() => onSelect(card)}
+                      className="aspect-[3/4] min-h-[120px] w-full opacity-100"
+                    />
                   </div>
                   {placed ? (
                     <span className="pointer-events-none absolute inset-x-1 top-1/2 -rotate-12 rounded-full bg-stone-900/75 py-1 text-center text-xs font-semibold text-white">
@@ -413,7 +428,7 @@ function getTemplateOrientation(width: number, height: number): ClipbookTemplate
 }
 
 function readTemplateImage(file: File) {
-  return new Promise<Pick<ClipbookTemplate, 'image' | 'imageNaturalWidth' | 'imageNaturalHeight' | 'aspectRatio' | 'orientation'>>((resolve, reject) => {
+  return new Promise<Pick<ClipbookTemplate, 'image' | 'imageFileName' | 'imageNaturalWidth' | 'imageNaturalHeight' | 'aspectRatio' | 'orientation'>>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const image = String(reader.result || '');
@@ -423,6 +438,7 @@ function readTemplateImage(file: File) {
         const imageNaturalHeight = preview.naturalHeight || 1;
         resolve({
           image,
+          imageFileName: file.name,
           imageNaturalWidth,
           imageNaturalHeight,
           aspectRatio: imageNaturalWidth / imageNaturalHeight,
