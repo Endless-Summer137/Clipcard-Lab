@@ -391,9 +391,14 @@ export function CardDetailView({ card, onClose, onDeleted }: { card: SegmentCard
                   {sourceFeedback ? <p className={`mt-1 text-xs ${theme.muted}`}>{sourceFeedback}</p> : null}
                 </section>
               </div>
-              <div>
-                <p className={`text-xs font-medium ${theme.accent}`}>判断依据</p>
-                <p className="mt-1">{currentCard.evidenceNote}</p>
+              <div className="rounded-2xl bg-white/32 px-3 py-2 shadow-sm">
+                <p className={`text-xs ${theme.muted}`}>AI 生成内容，请核查重要信息。</p>
+                <details className="mt-2">
+                  <summary className={`cursor-pointer select-none text-xs font-medium ${theme.accent}`}>
+                    生成依据
+                  </summary>
+                  <p className={`mt-2 text-xs leading-5 ${theme.muted}`}>{currentCard.evidenceNote}</p>
+                </details>
               </div>
               <div>
                 {isEditingReflection ? (

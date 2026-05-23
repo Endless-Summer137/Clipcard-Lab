@@ -1,6 +1,6 @@
 import type { CardEngineInput, SegmentCard } from './types';
 
-type CardTopic = 'game' | 'food' | 'travel' | 'generic' | 'light';
+type CardTopic = 'game' | 'game_collect' | 'food' | 'travel' | 'generic' | 'light';
 
 const GAME_KEYWORDS = ['游戏', '高光', '反打', '狙击', '团战', '操作', 'FPS', 'fps', '射击', '回合'];
 const FOOD_KEYWORDS = ['美食', '探店', '店铺', '餐', '菜', '汤', '点单', '小店', 'food'];
@@ -37,6 +37,8 @@ function buildContextText(input: CardEngineInput) {
     input.visionAnalysis?.cardSuggestion.suggestedCardType,
     input.visionAnalysis?.cardSuggestion.reason,
     input.transcriptExcerpt,
+    input.visibleTextOrOcr,
+    input.segmentFacts?.join(' '),
     input.segmentNote,
   ].map(compactText).filter(Boolean).join(' ');
 }
@@ -47,10 +49,30 @@ function hasSpecificContext(contextText: string) {
 
 function inferTopic(input: CardEngineInput, contextText: string): CardTopic {
   const contentType = input.visionAnalysis?.contentType;
+  if (isSparseGameHighlight(input, contextText)) return 'game_collect';
   if (includesAny(contextText, GAME_KEYWORDS) || contentType === 'game') return 'game';
   if (includesAny(contextText, FOOD_KEYWORDS) || contentType === 'food') return 'food';
   if (includesAny(contextText, TRAVEL_KEYWORDS) || contentType === 'travel') return 'travel';
   return 'generic';
+}
+
+function getSegmentFacts(input: CardEngineInput) {
+  return input.segmentFacts?.map(compactText).filter(Boolean) ?? [];
+}
+
+function isSparseGameHighlight(input: CardEngineInput, contextText: string) {
+  const activityContext = `${compactText(input.activityName)} ${input.tags.join(' ')}`;
+  const hasGameActivitySignal = includesAny(activityContext, ['游戏', '高光', 'FPS', 'fps', '操作']);
+  if (!hasGameActivitySignal) return false;
+
+  const hasTranscript = Boolean(compactText(input.transcriptExcerpt));
+  const hasVisibleText = Boolean(compactText(input.visibleTextOrOcr));
+  const facts = getSegmentFacts(input);
+  const hasEnoughFacts = facts.length >= 2;
+  const contentType = input.visionAnalysis?.contentType;
+  const visionOnlyGenericGame = contentType === 'game' || contentType === 'unknown' || includesAny(contextText, ['FPS', 'fps', '射击', '游戏画面']);
+
+  return !hasTranscript && !hasVisibleText && !hasEnoughFacts && visionOnlyGenericGame;
 }
 
 function shouldGenerateLightCard(input: CardEngineInput, contextText: string) {
@@ -62,6 +84,7 @@ function shouldGenerateLightCard(input: CardEngineInput, contextText: string) {
 
 function getCardType(input: CardEngineInput, topic: CardTopic) {
   if (topic === 'light') return '待补充片段';
+  if (topic === 'game_collect') return '游戏高光收藏卡';
   if (topic === 'game') return '游戏高光卡';
   if (topic === 'food') return '美食探店卡';
   if (topic === 'travel') return '旅行灵感卡';
@@ -76,6 +99,7 @@ function getCardType(input: CardEngineInput, topic: CardTopic) {
 function getTitle(input: CardEngineInput, topic: CardTopic) {
   const title = compactText(input.videoTitle) || '未命名片段';
   if (topic === 'game') return `游戏高光：${title}`;
+  if (topic === 'game_collect') return `游戏高光收藏：${title}`;
   if (topic === 'food') return `美食探店：${title}`;
   if (topic === 'travel') return `旅行灵感：${title}`;
   if (topic === 'light') return `待补充片段：${title}`;
@@ -128,6 +152,10 @@ function buildSummary(input: CardEngineInput, topic: CardTopic, contextText: str
     return `${activityPhrase}这段适合保存为游戏高能操作片段。重点在${focusText}，可用于复盘操作、整理高光或加入活动手账。`;
   }
 
+  if (topic === 'game_collect') {
+    return `${activityPhrase}这段适合作为活动高光片段收藏。当前可先加入 FPS 高光册，之后再补充操作说明；也适合分享给朋友讨论这一刻。`;
+  }
+
   if (topic === 'food') {
     const focusText = getUsefulObjects(input, ['菜品状态', '店铺氛围', '点单线索']).join('、');
     return `${activityPhrase}这段适合作为美食探店片段保存。重点在${focusText}，可用于回看点单参考、整理探店记录或加入主题手账。`;
@@ -148,6 +176,7 @@ function buildSummary(input: CardEngineInput, topic: CardTopic, contextText: str
 
 function buildSaveReason(input: CardEngineInput, topic: CardTopic) {
   if (topic === 'light') return '适合先暂存这一刻，稍后补充标题、画面说明或个人备注。';
+  if (topic === 'game_collect') return '适合先收藏为游戏高光素材，加入 FPS 高光册，或分享给朋友一起判断这段操作亮点。';
   if (topic === 'game') return '适合之后回看操作节奏、整理游戏高能手账，或分享给朋友讨论这波操作。';
   if (topic === 'food') return '适合之后回看菜品和店铺氛围，作为点单参考，也可以加入活动探店手账。';
   if (topic === 'travel') return '适合之后回看风景和地点氛围，沉淀出行灵感，也可以加入旅行手账。';
@@ -159,15 +188,20 @@ function buildSaveReason(input: CardEngineInput, topic: CardTopic) {
 function buildEvidenceNote(input: CardEngineInput, topic: CardTopic) {
   const base = topic === 'light'
     ? '本卡片未强行生成完整判断，仅保留片段时间、活动信息和已有元数据。'
-    : '本卡片结合活动主题、视频标题、视频简介、标签、片段时间和关键帧画面生成；视觉模型结果只作为辅助信号。';
+    : topic === 'game_collect'
+      ? '本卡片主要基于活动主题、视频标题、片段时间和关键帧画面生成；当前缺少字幕、OCR、赛事信息和连续操作事实。'
+      : '本卡片结合活动主题、视频标题、视频简介、标签、片段时间和关键帧画面生成；视觉模型结果只作为辅助信号。';
   const sourceNote = input.analysisSource === 'mock_vision_fallback'
     ? '视觉模型当前限流，已使用本地兜底生成；卡片可能不包含完整画面理解。'
     : input.analysisSource === 'rule_fallback'
       ? '当前未完成视觉分析，卡片主要基于标题、活动信息和片段时间生成。'
       : '当前尚未分析完整音频、解说、字幕和连续操作过程。';
+  const gameCollectNote = topic === 'game_collect'
+    ? '本卡片不判断具体地图、赛事、对阵队伍、战术细节或选手 ID。'
+    : '';
   const limitations = input.visionAnalysis?.limitations?.map(compactText).filter(Boolean).slice(0, 2);
   const limitationNote = limitations?.length ? `模型限制：${limitations.join('；')}` : '';
-  return [base, sourceNote, limitationNote].filter(Boolean).join(' ');
+  return [base, sourceNote, gameCollectNote, limitationNote].filter(Boolean).join(' ');
 }
 
 export function generateSegmentCard(input: CardEngineInput): SegmentCard {

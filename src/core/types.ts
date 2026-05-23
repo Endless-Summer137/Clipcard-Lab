@@ -183,6 +183,8 @@ export interface CardEngineInput {
   segmentSource: SegmentSource;
   transcriptExcerpt: string;
   segmentNote: string;
+  visibleTextOrOcr?: string;
+  segmentFacts?: string[];
   budgetResult: BudgetResult;
   adDecision: AdDecision;
   sourceAuthor?: string;
