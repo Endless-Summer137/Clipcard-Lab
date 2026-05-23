@@ -1,4 +1,4 @@
-import { ArrowLeft, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useState } from 'react';
 import type { SegmentCard } from '../core/types';
@@ -11,6 +11,7 @@ import {
   setClipbookPlacement,
 } from '../core/clipbookPlacementStore';
 import { CardDetailView, CardMini, getCardDisplayTitle, getCardTheme } from './CardDetailView';
+import { UserSubPageShell } from './UserSubPageShell';
 
 type NavigateTarget = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook' | 'dresser';
 
@@ -27,21 +28,14 @@ export function MyCardsPage({ onNavigate }: SimplePageProps) {
   const [cards, setCards] = useState<SegmentCard[]>(() => getCards());
 
   return (
-    <main className="min-h-screen bg-[#f7f4ec] px-4 py-5 text-stone-900">
-      <section className="mx-auto min-h-[calc(100vh-40px)] w-full max-w-[430px] rounded-[28px] bg-[#fffdf7] px-4 py-4 shadow-xl shadow-stone-200/70">
-        <header className="flex items-center gap-3">
-          <button type="button" onClick={() => onNavigate('profile', { dev: false })} aria-label="返回我页面" className="rounded-full bg-stone-100 p-2 text-stone-800">
-            <ArrowLeft className="h-5 w-5" strokeWidth={2} />
-          </button>
-          <h1 className="text-xl font-semibold">我的卡片</h1>
-        </header>
-
+    <UserSubPageShell title="我的卡片" onBack={() => onNavigate('profile', { dev: false })} contentClassName="mt-5">
+      <section>
         {cards.length > 0 ? (
-          <div className="mt-5 grid grid-cols-3 gap-3 overflow-y-auto pb-5">
+          <div className="grid grid-cols-3 gap-3 pb-5">
             {cards.map((card) => <CardMini key={card.cardId} card={card} onClick={() => setSelectedCard(card)} />)}
           </div>
         ) : (
-          <div className="mt-24 rounded-3xl bg-[#f3f0e7] px-5 py-9 text-center text-sm leading-6 text-stone-500">
+          <div className="mt-24 rounded-3xl bg-[#f3f0e7] px-5 py-9 text-center text-sm leading-6 text-stone-500 shadow-sm shadow-stone-200">
             刷视频时点击“保存这一刻”，片段卡会出现在这里。
           </div>
         )}
@@ -54,12 +48,12 @@ export function MyCardsPage({ onNavigate }: SimplePageProps) {
           onDeleted={(cardId) => setCards((current) => current.filter((card) => card.cardId !== cardId))}
         />
       ) : null}
-    </main>
+    </UserSubPageShell>
   );
 }
 
 export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps) {
-  const [cards] = useState<SegmentCard[]>(() => getCards());
+  const [cards, setCards] = useState<SegmentCard[]>(() => getCards());
   const [templates, setTemplates] = useState<ClipbookTemplate[]>(() => getClipbookTemplates());
   const [selectedTemplateId, setSelectedTemplateId] = useState('fps');
   const [placements, setPlacements] = useState(() => getClipbookPlacements('fps'));
@@ -92,6 +86,11 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
   function clearSlot(slotId: string) {
     removeClipbookPlacement(selectedTemplate.id, slotId);
     setPlacements(getClipbookPlacements(selectedTemplate.id));
+  }
+
+  function openSlotPicker(slotId: string) {
+    setCards(getCards());
+    setSelectingSlotId(slotId);
   }
 
   function getCardInSlot(slotId: string) {
@@ -137,107 +136,98 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
   }
 
   return (
-    <main className="min-h-screen bg-[#f7f4ec] px-4 py-5 text-stone-900">
-      <section className="mx-auto w-full max-w-[430px]">
-        <header className="flex items-center gap-3">
-          <button type="button" onClick={() => onNavigate('profile', { dev: false })} aria-label="返回我页面" className="rounded-full bg-white p-2 text-stone-800 shadow-sm">
-            <ArrowLeft className="h-5 w-5" strokeWidth={2} />
+    <UserSubPageShell
+      title="卡片手账"
+      subtitle="把保存的片段卡放进模板，生成可分享的卡片手账。"
+      onBack={() => onNavigate('profile', { dev: false })}
+    >
+      <section className="grid gap-2.5">
+        {templates.map((template) => (
+          <button
+            key={template.id}
+            type="button"
+            onClick={() => selectTemplate(template.id)}
+            className={[
+              'rounded-2xl border px-3 py-3 text-left shadow-sm transition',
+              selectedTemplate.id === template.id ? 'border-emerald-300 bg-white shadow-emerald-100' : 'border-white/70 bg-white/70 shadow-stone-200',
+            ].join(' ')}
+          >
+            <h2 className="font-semibold">{template.name}</h2>
+            <p className="mt-1 text-sm leading-6 text-stone-500">{getTemplateDescription(template)}</p>
           </button>
-          <div>
-            <h1 className="text-xl font-semibold">卡片手账</h1>
-            <p className="mt-1 text-sm text-stone-500">把保存的片段卡放进模板，生成可分享的卡片手账。</p>
-          </div>
-        </header>
+        ))}
+      </section>
 
-        <section className="mt-5 grid gap-3">
-          {templates.map((template) => (
-            <button
-              key={template.id}
-              type="button"
-              onClick={() => selectTemplate(template.id)}
-              className={[
-                'rounded-3xl border p-4 text-left shadow-sm transition',
-                selectedTemplate.id === template.id ? 'border-emerald-300 bg-white shadow-emerald-100' : 'border-white bg-white/70 shadow-stone-200',
-              ].join(' ')}
-            >
-              <h2 className="font-semibold">{template.name}</h2>
-              <p className="mt-1 text-sm leading-6 text-stone-500">{getTemplateDescription(template)}</p>
-            </button>
-          ))}
-        </section>
-
-        {devMode ? (
-          <section className="mt-5 rounded-[28px] bg-white p-4 shadow-sm shadow-stone-200">
-            <h2 className="font-semibold">模板配置</h2>
-            <label className="mt-3 block text-sm text-stone-600">
-              上传模板图
-              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={onTemplateImageUpload} className="mt-2 block w-full text-sm" />
-            </label>
-            <div className="mt-4 grid gap-3">
-              {selectedTemplate.slots.map((slot) => (
-                <div key={slot.id} className="rounded-2xl bg-stone-50 p-3">
-                  <p className="text-sm font-medium">{slot.label ?? slot.id}</p>
-                  <div className="mt-2 grid grid-cols-4 gap-2 text-xs">
-                    {(['x', 'y', 'w', 'h'] as const).map((key) => (
-                      <label key={key} className="text-stone-500">
-                        {key}
-                        <input
-                          type="number"
-                          value={slot[key]}
-                          onChange={(event) => updateSlot(slot, key, Number(event.target.value))}
-                          className="mt-1 w-full rounded-md border border-stone-200 bg-white px-2 py-1 text-stone-800 outline-none"
-                        />
-                      </label>
-                    ))}
-                  </div>
+      {devMode ? (
+        <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
+          <h2 className="font-semibold">模板配置</h2>
+          <label className="mt-3 block text-sm text-stone-600">
+            上传模板图
+            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={onTemplateImageUpload} className="mt-2 block w-full text-sm" />
+          </label>
+          <div className="mt-4 grid gap-3">
+            {selectedTemplate.slots.map((slot) => (
+              <div key={slot.id} className="rounded-2xl bg-stone-50 p-3">
+                <p className="text-sm font-medium">{slot.label ?? slot.id}</p>
+                <div className="mt-2 grid grid-cols-4 gap-2 text-xs">
+                  {(['x', 'y', 'w', 'h'] as const).map((key) => (
+                    <label key={key} className="text-stone-500">
+                      {key}
+                      <input
+                        type="number"
+                        value={slot[key]}
+                        onChange={(event) => updateSlot(slot, key, Number(event.target.value))}
+                        className="mt-1 w-full rounded-md border border-stone-200 bg-white px-2 py-1 text-stone-800 outline-none"
+                      />
+                    </label>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <section className="mt-5 rounded-[28px] bg-white p-4 shadow-sm shadow-stone-200">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-semibold">当前手账</h2>
-            {selectedTemplate.type === 'blank' ? (
-              <input
-                value={bookTitle}
-                onChange={(event) => setBookTitle(event.target.value)}
-                className="w-32 rounded-full bg-stone-100 px-3 py-1.5 text-sm outline-none"
-                aria-label="书名"
-              />
-            ) : null}
+              </div>
+            ))}
           </div>
-          <p className="mt-2 text-sm text-stone-500">{selectedTemplate.type === 'blank' ? bookTitle : selectedTemplate.name}</p>
-          <TemplateCanvas
-            template={selectedTemplate}
-            cards={cards}
-            getCardInSlot={getCardInSlot}
-            onSlotClick={setSelectingSlotId}
-            onClearSlot={clearSlot}
-            onImageMeasure={updateTemplateImageSize}
-          />
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => setFeedback('分享手账功能已预留。')} className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white">
-              分享手账
-            </button>
-            <button type="button" onClick={() => setFeedback('一键发布为视频功能已预留。')} className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-800">
-              一键发布为视频
-            </button>
-          </div>
-          {feedback ? <p className="mt-3 text-sm text-emerald-700">{feedback}</p> : null}
         </section>
+      ) : null}
+
+      <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold">当前手账</h2>
+          {selectedTemplate.type === 'blank' ? (
+            <input
+              value={bookTitle}
+              onChange={(event) => setBookTitle(event.target.value)}
+              className="w-32 rounded-full bg-stone-100 px-3 py-1.5 text-sm outline-none"
+              aria-label="书名"
+            />
+          ) : null}
+        </div>
+        <p className="mt-2 text-sm text-stone-500">{selectedTemplate.type === 'blank' ? bookTitle : selectedTemplate.name}</p>
+        <TemplateCanvas
+          template={selectedTemplate}
+          cards={cards}
+          getCardInSlot={getCardInSlot}
+          onSlotClick={openSlotPicker}
+          onClearSlot={clearSlot}
+          onImageMeasure={updateTemplateImageSize}
+        />
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <button type="button" onClick={() => setFeedback('分享手账功能已预留。')} className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white">
+            分享手账
+          </button>
+          <button type="button" onClick={() => setFeedback('一键发布为视频功能已预留。')} className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-800">
+            一键发布为视频
+          </button>
+        </div>
+        {feedback ? <p className="mt-3 text-sm text-emerald-700">{feedback}</p> : null}
       </section>
 
       {selectingSlotId ? (
         <CardPickerModal
-          cards={cards}
           placedCardIds={placedCardIds}
           onClose={() => setSelectingSlotId(null)}
           onSelect={placeCard}
         />
       ) : null}
-    </main>
+    </UserSubPageShell>
   );
 }
 
@@ -330,27 +320,27 @@ function SlotCard({ card, onClear }: { card: SegmentCard; onClear: (event: React
 }
 
 function CardPickerModal({
-  cards,
   placedCardIds,
   onClose,
   onSelect,
 }: {
-  cards: SegmentCard[];
   placedCardIds: Set<string>;
   onClose: () => void;
   onSelect: (card: SegmentCard) => void;
 }) {
+  const [cards] = useState<SegmentCard[]>(() => getCards());
+
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/35 px-4 pb-4 backdrop-blur-sm">
-      <section className="w-full max-w-[430px] rounded-[28px] bg-[#fffdf7] p-4 shadow-2xl">
-        <header className="flex items-center justify-between">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/35 px-4 backdrop-blur-sm">
+      <section className="flex h-[70vh] w-full max-w-[430px] flex-col rounded-t-[30px] bg-[#fffdf7] p-4 shadow-2xl">
+        <header className="flex shrink-0 items-center justify-between">
           <h2 className="text-lg font-semibold">选择卡片</h2>
           <button type="button" onClick={onClose} aria-label="退出选择" className="rounded-full bg-stone-100 p-2">
             <X className="h-5 w-5" />
           </button>
         </header>
         {cards.length > 0 ? (
-          <div className="mt-4 grid max-h-[58vh] grid-cols-3 gap-3 overflow-y-auto">
+          <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto pb-4 min-[390px]:grid-cols-3">
             {cards.map((card) => {
               const placed = placedCardIds.has(card.cardId);
               return (
@@ -368,7 +358,9 @@ function CardPickerModal({
             })}
           </div>
         ) : (
-          <p className="mt-8 rounded-2xl bg-stone-100 px-4 py-6 text-center text-sm text-stone-500">还没有可选择的卡片。</p>
+          <p className="mt-8 rounded-2xl bg-stone-100 px-4 py-6 text-center text-sm leading-6 text-stone-500">
+            还没有可放入手账的卡片。先在视频里点击“保存这一刻”生成卡片。
+          </p>
         )}
       </section>
     </div>

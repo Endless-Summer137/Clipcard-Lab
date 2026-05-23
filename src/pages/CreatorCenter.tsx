@@ -1,4 +1,3 @@
-import { ArrowLeft } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { getCards } from '../core/cardStore';
@@ -6,6 +5,7 @@ import { getEvents } from '../core/eventStore';
 import { buildTrendBuckets } from '../core/trendAnalytics';
 import type { DemoVideoConfig } from './demoData';
 import { defaultDemoVideos } from './demoData';
+import { UserSubPageShell } from './UserSubPageShell';
 
 interface CreatorCenterProps {
   onBack: () => void;
@@ -40,16 +40,8 @@ export function CreatorCenter({ onBack }: CreatorCenterProps) {
   const insights = getInsights(video, totals);
 
   return (
-    <main className="min-h-screen bg-[#f7f4ec] px-4 py-5 text-stone-900">
-      <section className="mx-auto min-h-[calc(100vh-40px)] w-full max-w-[430px] rounded-[28px] bg-[#fffdf7] px-4 py-4 shadow-xl shadow-stone-200/70">
-        <header className="flex items-center gap-3">
-          <button type="button" onClick={onBack} aria-label="返回我页面" className="rounded-full bg-stone-100 p-2 text-stone-800">
-            <ArrowLeft className="h-5 w-5" strokeWidth={2} />
-          </button>
-          <h1 className="text-xl font-semibold">创作者中心</h1>
-        </header>
-
-        <section className="mt-5 rounded-3xl bg-[#f4f0e7] p-4">
+    <UserSubPageShell title="创作者中心" onBack={onBack}>
+        <section className="rounded-3xl bg-[#f4f0e7] p-4">
           <p className="text-xs font-medium text-stone-500">当前视频</p>
           <h2 className="mt-1 text-lg font-semibold">{video.videoTitle}</h2>
           <div className="mt-4 grid grid-cols-3 gap-2">
@@ -116,8 +108,7 @@ export function CreatorCenter({ onBack }: CreatorCenterProps) {
           </p>
           <p className="mt-1 text-sm leading-6 text-stone-500">原因：{adSummary.reason}</p>
         </section>
-      </section>
-    </main>
+    </UserSubPageShell>
   );
 }
 

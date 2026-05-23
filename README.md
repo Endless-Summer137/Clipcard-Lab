@@ -21,6 +21,7 @@ Page responsibilities are intentionally split:
 
 - `DemoFeedPage`: user-facing short-video feed demo. It calls the core modules and shows the generated card result, not the internal gates.
 - `ProfilePage`: short-video-style personal homepage with creator-center and card entrances.
+- `UserSubPageShell`: shared light app-page shell for profile subpages such as my cards, clipbook, dresser, and creator center.
 - `CreatorCenter`: phone-width creator subpage with trend summaries, lightweight insights, and a summarized ad-fit status.
 - `InternalLab`: shows budget/ad/card-engine internals for explanation and review.
 - `MyCardsPage`: light themed three-column card library with card detail view.
@@ -53,6 +54,7 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 - Collectible ClipCard card visuals with themed mini cards, detail view, fixed ad disclosure area, and scrollable card content.
 - Cover-style card thumbnails that use saved video-frame covers when available and fall back to soft light-card surfaces for low-information clips.
 - A basic card clipbook flow with selectable templates, percentage-based card slots, placed-card removal, placeholder share/publish actions, and disabled duplicate placement in the card picker.
+- Clipbook card selection reads the same `cardStore` source as the my-cards grid, so saved cards can be placed into any template slot.
 - Dev-only clipbook template image upload plus numeric `x/y/w/h` slot adjustment for configuring custom template layouts.
 - Uploaded clipbook template images render complete in the editor using their original aspect ratio, with slots anchored to the template image coordinate system.
 - A card dresser placeholder that keeps sticker/color customization separate from the clipbook editor.

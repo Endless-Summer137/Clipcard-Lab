@@ -36,6 +36,8 @@
 - Upgraded `ClipbookPage` with FPS/landscape/blank percentage-based slots, dev-only template image upload, dev-only numeric `x/y/w/h` slot adjustment, arbitrary slot selection, placed-card removal, and disabled gray `已放置` cards in the picker.
 - Fixed clipbook template rendering so uploaded template images are measured through `naturalWidth` / `naturalHeight`, stored with aspect metadata, rendered with `object-contain`, and overlaid with slots in the template image coordinate system.
 - Reworked `CreatorCenter` into a light, phone-width app subpage with a profile return arrow, three-video selector, compact metrics, mobile-sized trend chart, natural-language insights, and a summarized ad-fit section.
+- Added a shared `UserSubPageShell` for `MyCardsPage`, `ClipbookPage`, `DresserPage`, and `CreatorCenter` so user-side subpages now match the light app-page shape of the profile page instead of using large standalone white panels.
+- Fixed clipbook card selection data flow so opening a template slot refreshes cards from `cardStore`, the picker also reads `cardStore` directly, placed cards remain visible but disabled with an `已放置` marker, and the empty state only appears when the shared card store is empty.
 
 ## Validation
 
@@ -61,6 +63,8 @@
 - `npm.cmd run build` completed successfully after the template-ratio and creator-center shape update.
 - Source validation confirmed the clipbook edit canvas no longer uses a fixed `aspect-[4/5]` for uploaded templates, uploaded template images use `object-contain`, template metadata includes natural dimensions/aspect/orientation, and `CreatorCenter` no longer renders as a wide dark workbench.
 - In-app browser verification was not repeated for this final pass because the Browser session was stuck on a previously crashed `data:` page and the Browser tool refused further actions by URL policy.
+- `npm.cmd run build` completed successfully after adding `UserSubPageShell` and repairing the clipbook picker data source.
+- Source validation confirmed `myCards`, `clipbook`, `dresser`, and `creatorCenter` use `UserSubPageShell`; `CardPickerModal` reads `cardStore.getCards()` directly; and slot opening refreshes the parent card list from the same store before selection.
 
 ## Current Repository Agreement
 
