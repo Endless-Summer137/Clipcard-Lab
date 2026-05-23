@@ -1,6 +1,15 @@
 import type { ChangeEvent } from 'react';
 import { useState } from 'react';
-import { parseTags, readDemoConfig, readFileAsDataUrl, saveDemoConfig, type DemoVideoConfig } from './demoData';
+import { saveVideoBlob } from '../core/videoBlobStore';
+import {
+  clearDemoConfig,
+  clearDemoConfigNotice,
+  getDemoConfigNotice,
+  parseTags,
+  readDemoConfig,
+  saveDemoConfig,
+  type DemoVideoConfig,
+} from './demoData';
 
 type NavigateTarget = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook';
 
@@ -8,21 +17,92 @@ interface AdminConfigPageProps {
   onNavigate: (page: NavigateTarget, options?: { dev?: boolean }) => void;
 }
 
+const MAX_VIDEO_FILE_SIZE = 200 * 1024 * 1024;
+const SUPPORTED_VIDEO_TYPES = ['video/mp4', 'video/webm'];
+
 export function AdminConfigPage({ onNavigate }: AdminConfigPageProps) {
-  const [videos, setVideos] = useState<DemoVideoConfig[]>(() => readDemoConfig());
+  const [videos, setVideos] = useState<DemoVideoConfig[]>(() => {
+    try {
+      return readDemoConfig();
+    } catch {
+      return [];
+    }
+  });
+  const [pageError, setPageError] = useState(() => (videos.length === 0 ? '配置加载失败' : ''));
+  const [notice, setNotice] = useState(() => getDemoConfigNotice());
+  const [uploadStatus, setUploadStatus] = useState<Record<number, { type: 'success' | 'error'; message: string }>>({});
 
   function updateVideo(index: number, patch: Partial<DemoVideoConfig>) {
-    setVideos((current) => {
-      const next = current.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
-      saveDemoConfig(next);
-      return next;
-    });
+    try {
+      setVideos((current) => {
+        const next = current.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
+        saveDemoConfig(next);
+        return next;
+      });
+    } catch {
+      setPageError('配置保存失败，请清除本地配置后重试。');
+    }
   }
 
   async function onVideoUpload(index: number, event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-    updateVideo(index, { videoDataUrl: await readFileAsDataUrl(file) });
+    setUploadStatus((current) => ({ ...current, [index]: { type: 'success', message: '正在保存视频…' } }));
+
+    try {
+      if (!SUPPORTED_VIDEO_TYPES.includes(file.type)) {
+        throw new Error('仅支持 mp4 或 webm 视频。');
+      }
+      if (file.size > MAX_VIDEO_FILE_SIZE) {
+        throw new Error('视频过大，建议压缩到 200MB 以内后上传。');
+      }
+
+      const videoId = videos[index]?.videoId || `demo_video_${index + 1}`;
+      const videoBlobKey = await saveVideoBlob(videoId, file);
+      updateVideo(index, {
+        videoBlobKey,
+        videoFileName: file.name,
+        videoDataUrl: undefined,
+      });
+      setUploadStatus((current) => ({ ...current, [index]: { type: 'success', message: '视频已保存' } }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '视频保存失败，请换一个较小的视频文件。';
+      setUploadStatus((current) => ({ ...current, [index]: { type: 'error', message } }));
+    } finally {
+      event.target.value = '';
+    }
+  }
+
+  function clearLocalConfig() {
+    clearDemoConfig();
+    clearDemoConfigNotice();
+    const nextVideos = readDemoConfig();
+    setVideos(nextVideos);
+    setPageError('');
+    setNotice('');
+    setUploadStatus({});
+  }
+
+  if (pageError) {
+    return (
+      <main className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
+        <div className="mx-auto max-w-xl rounded-lg border border-red-300/20 bg-red-300/10 p-5">
+          <h1 className="text-xl font-semibold text-white">配置加载失败</h1>
+          <p className="mt-2 text-sm leading-6 text-red-50">{pageError}</p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <button type="button" onClick={() => onNavigate('demoFeed', { dev: false })} className="rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-950">
+              返回演示页
+            </button>
+            <button type="button" onClick={() => onNavigate('demoFeed', { dev: true })} className="rounded-md border border-white/15 px-3 py-2 text-sm text-white">
+              返回开发导航
+            </button>
+            <button type="button" onClick={clearLocalConfig} className="rounded-md border border-white/15 px-3 py-2 text-sm text-white">
+              清除本地配置并重试
+            </button>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -35,6 +115,7 @@ export function AdminConfigPage({ onNavigate }: AdminConfigPageProps) {
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
               这里只配置 3 个演示视频的原始输入材料。最终卡片标题、摘要和保存理由仍由 cardEngine 生成。
             </p>
+            {notice ? <p className="mt-3 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-50">{notice}</p> : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => onNavigate('demoFeed', { dev: false })} className="rounded-md bg-white px-3 py-2 text-sm font-medium text-slate-950">
@@ -57,6 +138,12 @@ export function AdminConfigPage({ onNavigate }: AdminConfigPageProps) {
                 视频文件
                 <input type="file" accept="video/mp4,video/webm" onChange={(event) => onVideoUpload(index, event)} className="mt-2 w-full text-sm text-slate-300" />
               </label>
+              {item.videoFileName ? <p className="mt-2 text-xs text-slate-400">当前视频：{item.videoFileName}</p> : null}
+              {uploadStatus[index] ? (
+                <p className={['mt-2 rounded-md px-3 py-2 text-xs leading-5', uploadStatus[index].type === 'success' ? 'bg-emerald-300/10 text-emerald-50' : 'bg-red-300/10 text-red-50'].join(' ')}>
+                  {uploadStatus[index].message}
+                </p>
+              ) : null}
               <label className="mt-3 block text-sm text-slate-300">
                 videoId
                 <input value={item.videoId} onChange={(event) => updateVideo(index, { videoId: event.target.value })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />

@@ -3,10 +3,14 @@ import type { DemoVideoInput } from '../core/types';
 export interface DemoVideoConfig extends DemoVideoInput {
   authorName: string;
   videoDataUrl?: string;
+  videoBlobKey?: string;
+  videoFileName?: string;
   duration: number;
 }
 
 export const DEMO_CONFIG_KEY = 'clipcard-lab-demo-feed-inputs-v1';
+
+let demoConfigNotice = '';
 
 export const defaultDemoVideos: DemoVideoConfig[] = [
   {
@@ -65,29 +69,67 @@ export const defaultDemoVideos: DemoVideoConfig[] = [
 ];
 
 export function readDemoConfig() {
+  let raw: string | null = null;
   try {
-    const raw = localStorage.getItem(DEMO_CONFIG_KEY);
+    raw = localStorage.getItem(DEMO_CONFIG_KEY);
     if (!raw) return defaultDemoVideos;
+    let shouldRewrite = false;
+    if (raw.includes('data:video')) {
+      demoConfigNotice = '已忽略旧版视频缓存，请重新上传视频。';
+      shouldRewrite = true;
+    }
     const parsed = JSON.parse(raw) as Partial<DemoVideoConfig>[];
-    return defaultDemoVideos.map((fallback, index) => ({
-      ...fallback,
-      ...parsed[index],
-      videoId: parsed[index]?.videoId || fallback.videoId,
-      tags: Array.isArray(parsed[index]?.tags) ? parsed[index]?.tags ?? fallback.tags : fallback.tags,
-      activityEnabled: parsed[index]?.activityEnabled ?? fallback.activityEnabled,
-      activityId: parsed[index]?.activityId ?? fallback.activityId,
-      activityName: parsed[index]?.activityName ?? fallback.activityName,
-      activityCta: parsed[index]?.activityCta ?? fallback.activityCta,
-      targetClipbookTemplate: parsed[index]?.targetClipbookTemplate ?? fallback.targetClipbookTemplate,
-      sourceVideoUrl: parsed[index]?.sourceVideoUrl ?? fallback.sourceVideoUrl,
-    }));
+    const sanitized = defaultDemoVideos.map((fallback, index) => {
+      const input = parsed[index] ?? {};
+      if (typeof input.videoDataUrl === 'string' && input.videoDataUrl.startsWith('data:video')) {
+        shouldRewrite = true;
+      }
+      return sanitizeDemoVideoConfig({
+        ...fallback,
+        ...input,
+        videoId: input.videoId || fallback.videoId,
+        tags: Array.isArray(input.tags) ? input.tags ?? fallback.tags : fallback.tags,
+        activityEnabled: input.activityEnabled ?? fallback.activityEnabled,
+        activityId: input.activityId ?? fallback.activityId,
+        activityName: input.activityName ?? fallback.activityName,
+        activityCta: input.activityCta ?? fallback.activityCta,
+        targetClipbookTemplate: input.targetClipbookTemplate ?? fallback.targetClipbookTemplate,
+        sourceVideoUrl: input.sourceVideoUrl ?? fallback.sourceVideoUrl,
+      });
+    });
+    if (shouldRewrite) saveDemoConfig(sanitized);
+    return sanitized;
   } catch {
+    demoConfigNotice = '配置加载失败，已使用默认 demo 数据。';
+    if (raw?.includes('data:video')) localStorage.removeItem(DEMO_CONFIG_KEY);
     return defaultDemoVideos;
   }
 }
 
 export function saveDemoConfig(videos: DemoVideoConfig[]) {
-  localStorage.setItem(DEMO_CONFIG_KEY, JSON.stringify(videos.slice(0, 3)));
+  const payload = videos.slice(0, 3).map(sanitizeDemoVideoConfig);
+  localStorage.setItem(DEMO_CONFIG_KEY, JSON.stringify(payload));
+}
+
+export function getDemoConfigNotice() {
+  return demoConfigNotice;
+}
+
+export function clearDemoConfigNotice() {
+  demoConfigNotice = '';
+}
+
+export function clearDemoConfig() {
+  localStorage.removeItem(DEMO_CONFIG_KEY);
+  demoConfigNotice = '';
+}
+
+function sanitizeDemoVideoConfig(video: DemoVideoConfig): DemoVideoConfig {
+  const {
+    videoDataUrl: _videoDataUrl,
+    ...metadata
+  } = video;
+  return metadata;
 }
 
 export function parseTags(value: string) {
@@ -95,13 +137,4 @@ export function parseTags(value: string) {
     .split(/[，,]/)
     .map((item) => item.trim())
     .filter(Boolean);
-}
-
-export function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ''));
-    reader.onerror = () => reject(new Error('视频读取失败，请重新选择文件。'));
-    reader.readAsDataURL(file);
-  });
 }

@@ -198,6 +198,8 @@ export interface DemoVideoInput {
   segmentNote: string;
   adCandidate: string;
   videoDataUrl?: string;
+  videoBlobKey?: string;
+  videoFileName?: string;
   authorName?: string;
   sourceVideoUrl?: string;
   activityEnabled?: boolean;

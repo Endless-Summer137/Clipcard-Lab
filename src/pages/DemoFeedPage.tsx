@@ -7,6 +7,7 @@ import { generateSegmentCard } from '../core/cardEngine';
 import { saveCard } from '../core/cardStore';
 import { recordEvent } from '../core/eventStore';
 import type { CardCoverSource, SegmentCard, SegmentSource, TriggerMode } from '../core/types';
+import { createVideoObjectUrl } from '../core/videoBlobStore';
 import { captureVideoFrame } from '../core/videoFrameCapture';
 import { CardDetailView, CardQuickPreview } from './CardDetailView';
 import { defaultDemoVideos, readDemoConfig, type DemoVideoConfig } from './demoData';
@@ -37,13 +38,51 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
   const [cardFeedback, setCardFeedback] = useState('');
   const [isGeneratingCard, setIsGeneratingCard] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [videoObjectUrls, setVideoObjectUrls] = useState<Record<string, string>>({});
+  const [brokenVideoIds, setBrokenVideoIds] = useState<Set<string>>(() => new Set());
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
 
   const video = videos[activeIndex] ?? defaultDemoVideos[0];
+  const videoSrc = brokenVideoIds.has(video.videoId) ? undefined : videoObjectUrls[video.videoId] ?? video.videoDataUrl;
 
   useEffect(() => {
     setVideos(readDemoConfig());
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    const createdUrls: string[] = [];
+
+    async function loadVideoBlobs() {
+      const nextUrls: Record<string, string> = {};
+      for (const item of videos) {
+        if (!item.videoBlobKey) continue;
+        try {
+          const objectUrl = await createVideoObjectUrl(item.videoBlobKey);
+          if (!objectUrl) continue;
+          if (!isActive) {
+            URL.revokeObjectURL(objectUrl);
+            continue;
+          }
+          createdUrls.push(objectUrl);
+          nextUrls[item.videoId] = objectUrl;
+        } catch {
+          // A missing or blocked Blob should fall back to the demo placeholder instead of blanking the page.
+        }
+      }
+      if (isActive) {
+        setBrokenVideoIds(new Set());
+        setVideoObjectUrls(nextUrls);
+      }
+    }
+
+    void loadVideoBlobs();
+
+    return () => {
+      isActive = false;
+      createdUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [videos]);
 
   function formatSeconds(seconds: number) {
     const safeSeconds = Math.max(0, Math.round(seconds));
@@ -146,7 +185,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
       return getDefaultSegment(triggerMode);
     }
 
-    if (video.videoDataUrl && videoElement && videoElement.readyState >= 1 && Number.isFinite(videoElement.currentTime)) {
+    if (videoSrc && videoElement && videoElement.readyState >= 1 && Number.isFinite(videoElement.currentTime)) {
       const currentTime = videoElement.currentTime;
       const duration = Number.isFinite(videoElement.duration) ? videoElement.duration : Math.max(video.defaultSegmentEnd, currentTime + 1.5);
       const segmentStart = Math.max(0, currentTime - 1.5);
@@ -174,7 +213,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
       { source: 'segment_midpoint', time: midpoint },
     ];
 
-    if (video.videoDataUrl && videoElement && videoElement.readyState >= 1) {
+    if (videoSrc && videoElement && videoElement.readyState >= 1) {
       for (const attempt of captureAttempts) {
         const captured = await captureVideoFrame(videoElement, {
           time: attempt.time,
@@ -332,8 +371,18 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
   return (
     <main className="relative min-h-screen overflow-hidden bg-black text-white" onWheel={onWheel} onTouchStart={(event) => setTouchStartY(event.touches[0].clientY)} onTouchEnd={onTouchEnd}>
       <section className="relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col justify-between overflow-hidden bg-slate-950 shadow-2xl shadow-black md:my-0">
-        {video.videoDataUrl ? (
-          <video ref={videoElementRef} key={video.videoId + video.videoDataUrl} src={video.videoDataUrl} className="absolute inset-0 h-full w-full object-cover" autoPlay muted loop playsInline />
+        {videoSrc ? (
+          <video
+            ref={videoElementRef}
+            key={video.videoId + videoSrc}
+            src={videoSrc}
+            className="absolute inset-0 h-full w-full object-cover"
+            autoPlay
+            muted
+            loop
+            playsInline
+            onError={() => setBrokenVideoIds((current) => new Set(current).add(video.videoId))}
+          />
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(45,212,191,0.42),transparent_28%),radial-gradient(circle_at_70%_55%,rgba(251,146,60,0.34),transparent_32%),linear-gradient(160deg,#020617,#111827_50%,#0f172a)]" />
         )}
@@ -346,7 +395,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
           </div>
           <Search className="mt-0.5 h-6 w-6 text-white" strokeWidth={2.2} aria-hidden="true" />
         </header>
-        {!video.videoDataUrl ? (
+        {!videoSrc ? (
           <div className="relative z-10 flex flex-1 items-center justify-center px-6 text-center">
             <div className="rounded-xl border border-white/15 bg-black/20 px-5 py-6 backdrop-blur">
               <p className="text-sm uppercase tracking-[0.2em] text-white/55">Demo Placeholder</p>

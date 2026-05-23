@@ -12,6 +12,7 @@ The app separates shared mechanism logic from page-level demos:
 - `src/core/adGate.ts`: ad-fit decision and mandatory ad disclosure metadata.
 - `src/core/cardEngine.ts`: local rule-based clip-card generation, with an input shape ready for future AI APIs.
 - `src/core/cardStore.ts`: local `localStorage` card persistence under `clipcard.cards`, with older-card and source-attribution normalization.
+- `src/core/videoBlobStore.ts`: IndexedDB storage for uploaded demo video blobs, keeping localStorage metadata-only.
 - `src/core/videoFrameCapture.ts`: local canvas-based video-frame capture for compressed card cover images.
 - `src/core/eventStore.ts`: local `localStorage` user event logging.
 - `src/core/trendAnalytics.ts`: video-time bucket aggregation for creator trend charts.
@@ -46,13 +47,14 @@ Page responsibilities are intentionally split:
 - `/?page=admin&dev=1`: hidden demo-material configuration page.
 - `/?page=internal&dev=1`: internal mechanism lab.
 
-Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&dev=1`; `Esc` returns from admin config to `?page=demo&dev=1`.
+Add `dev=1` to show the development navigation bar. `Ctrl+Shift+U` opens `?page=admin&dev=1`; `Esc` returns from admin config to `?page=demo&dev=1`.
 
 ## What It Tests
 
 - Sample clip scenarios: 美食探店, 游戏高光, 旅行风景, 低信息片段.
 - Activity-entry scenarios: `#分享你的美食搭子` and `#游戏高能操作时刻` show bottom-left activity capsules, while the travel demo intentionally has no ClipCard entry.
 - Real video test mode for local `mp4` / `webm` uploads through the hidden demo-material configuration mode.
+- Uploaded demo videos are stored as IndexedDB Blobs, while localStorage keeps only metadata such as `videoBlobKey` and file name.
 - Demo default segment fields named `defaultSegmentStart` / `defaultSegmentEnd`, used only as fallback when no real user-triggered segment is available.
 - Short-press segment generation from the current video time when a real video is available, with `segmentSource` stored on every generated card.
 - Real uploaded-video frame capture for card covers, falling back to segment start, segment midpoint, or a compact demo placeholder when capture is unavailable.

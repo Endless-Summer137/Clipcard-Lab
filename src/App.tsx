@@ -77,7 +77,7 @@ export default function App() {
   useEffect(() => {
     const syncRoute = () => setRoute(readRoute());
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.ctrlKey && event.key.toLowerCase() === 'u') {
+      if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'u') {
         event.preventDefault();
         navigate('adminConfig', { dev: true });
       }
@@ -131,6 +131,7 @@ export default function App() {
             <div>
               <p className="text-xs uppercase tracking-[0.24em] text-teal-200">ClipCard Lab</p>
               <h1 className="mt-1 text-lg font-semibold text-white">开发导航</h1>
+              <p className="mt-1 text-xs text-slate-400">隐藏配置页：Ctrl + Shift + U 或 ?page=admin&amp;dev=1</p>
             </div>
             <nav className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
               {devPages.map((page) => {
