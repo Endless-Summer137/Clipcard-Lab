@@ -26,6 +26,8 @@
 - Upgraded `MyCardsPage` into a light three-column card grid with themed mini cards and card-detail opening behavior.
 - Upgraded `ClipbookPage` into a basic template demo for FPS, landscape, and blank-book templates, including card slots, blank-book title input, card adding, placeholder share/publish actions, and basic sticker presets.
 - Updated `cardEngine` local rules so Level 0 creates a `待补充片段`, Level 1 creates a `轻量瞬间卡`, and Level 2+ produces standard content-typed cards.
+- Changed the demo feed bottom Tab from black to a neutral translucent gray and added card cover metadata (`coverImage`, `coverFrame`, `coverSource`) captured from the current video frame or a generated demo cover.
+- Changed card thumbnails into cover-first mini cards that show only the card type label and display title, with full text remaining in the detail view.
 
 ## Validation
 
@@ -43,6 +45,7 @@
 - `npm.cmd run build` completed successfully after the `ProfilePage` polish. Browser verification confirmed profile keeps the bottom Tab, `首页` returns to `?page=demo`, the duplicate `clipcard_demo` line is gone, metrics read `1.2w / 86 / 128 / 2,026`, and only one visible creator-center entry remains.
 - `npm.cmd run build` completed successfully after the profile metrics-row adjustment. Browser verification confirmed `编辑资料` appears once as a small same-row capsule button beside the metrics.
 - `npm.cmd run build` completed successfully after the light card/clipbook update. Browser verification confirmed profile light styling, card center entries/templates/recent previews, three-column `我的卡片`, card detail top icons and scrollable content, fixed ad disclosure, clipbook FPS/landscape/blank templates, blank-book title input, slots, stickers, and share/publish placeholders.
+- `npm.cmd run build` completed successfully after the cover-thumbnail update. Browser verification confirmed the demo feed bottom Tab is no longer black, new saved cards get cover images, `我的卡片` thumbnails show image cover plus type/title only, and clicking a thumbnail still opens `CardDetailView`.
 
 ## Current Repository Agreement
 

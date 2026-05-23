@@ -56,6 +56,9 @@ export interface CardEngineInput {
   segmentNote: string;
   budgetResult: BudgetResult;
   adDecision: AdDecision;
+  coverImage?: string;
+  coverFrame?: number;
+  coverSource?: 'current_frame' | 'segment_start_frame' | 'generated_placeholder' | 'future_best_frame';
 }
 
 export interface SegmentCard {
@@ -70,6 +73,9 @@ export interface SegmentCard {
   evidenceNote: string;
   adDecision: AdDecision;
   createdAt: string;
+  coverImage?: string;
+  coverFrame?: number;
+  coverSource?: 'current_frame' | 'segment_start_frame' | 'generated_placeholder' | 'future_best_frame';
 }
 
 export type ClipEventType =

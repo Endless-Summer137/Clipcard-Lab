@@ -47,6 +47,7 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 - Level 0 / Level 1 / Level 2 card generation differences for waiting-to-complete cards, lightweight moment cards, and standard segment cards.
 - Local `localStorage` card persistence and event logging.
 - Collectible ClipCard card visuals with themed mini cards, detail view, fixed ad disclosure area, and scrollable card content.
+- Cover-style card thumbnails that use saved video-frame covers when available and fall back to soft light-card surfaces for low-information clips.
 - A basic card clipbook flow with selectable templates, card slots, placeholder share/publish actions, and a small sticker preset area.
 - Multi-metric 10-second trend buckets with `recharts`, including card generation, saves, shares, clipbook adds, and ad clicks.
 - Ad-fit gate decisions that require clear ad labeling and do not present ads as neutral AI advice.

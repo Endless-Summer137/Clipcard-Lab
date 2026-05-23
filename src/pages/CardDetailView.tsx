@@ -40,6 +40,15 @@ export function getCardTypeLabel(card: SegmentCard) {
   return card.cardType;
 }
 
+export function getCardDisplayTitle(card: SegmentCard) {
+  const title = card.title.trim();
+  const separatorIndex = title.search(/[：:]/);
+  if (separatorIndex > 0 && separatorIndex < 16) {
+    return title.slice(separatorIndex + 1).trim();
+  }
+  return title;
+}
+
 export function getCardTheme(card: SegmentCard) {
   const kind = getCardKind(card);
 
@@ -100,20 +109,25 @@ function getAdLabel(card: SegmentCard) {
 
 export function CardMini({ card, onClick }: { card: SegmentCard; onClick: () => void }) {
   const theme = getCardTheme(card);
+  const showCover = Boolean(card.coverImage) && getCardKind(card) !== 'light';
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex aspect-[3/4] min-w-0 flex-col rounded-2xl border p-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${theme.mini}`}
+      className={`relative aspect-[3/4] min-w-0 overflow-hidden rounded-2xl border text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${showCover ? 'border-white bg-stone-200' : theme.mini}`}
     >
-      <span className={`w-fit rounded-full px-2 py-0.5 text-[10px] font-medium ${theme.tag}`}>{getCardTypeLabel(card)}</span>
-      <span className="mt-2 text-[11px] opacity-65">
-        {formatSeconds(card.segmentStart)} - {formatSeconds(card.segmentEnd)}
+      {showCover ? (
+        <img src={card.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,255,255,0.65),transparent_26%),linear-gradient(160deg,rgba(255,255,255,0.34),rgba(255,255,255,0))]" />
+      )}
+      <span className={`absolute left-2 top-2 z-10 max-w-[calc(100%-16px)] rounded-full px-2 py-0.5 text-[10px] font-medium ${showCover ? 'bg-white/86 text-stone-800 shadow-sm' : theme.tag}`}>
+        {getCardTypeLabel(card)}
       </span>
-      <span className="mt-2 line-clamp-2 text-sm font-semibold leading-5">{card.title}</span>
-      <span className="mt-2 line-clamp-2 text-xs leading-5 opacity-70">{card.summary}</span>
-      <span className="mt-auto line-clamp-1 pt-2 text-[11px] opacity-55">{getVideoSourceName(card)}</span>
+      <span className={`absolute inset-x-0 bottom-0 z-10 px-2.5 pb-2.5 pt-10 ${showCover ? 'bg-gradient-to-t from-black/70 via-black/32 to-transparent' : ''}`}>
+        <span className={`line-clamp-2 text-sm font-semibold leading-5 ${showCover ? 'text-white drop-shadow' : ''}`}>{getCardDisplayTitle(card)}</span>
+      </span>
     </button>
   );
 }

@@ -1,6 +1,6 @@
 import { Bookmark, Heart, MessageCircle, Search, Share2, Star } from 'lucide-react';
 import type { TouchEvent, WheelEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { runAdGate } from '../core/adGate';
 import { runBudgetGate } from '../core/budgetGate';
 import { generateSegmentCard } from '../core/cardEngine';
@@ -19,6 +19,9 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
   const [activeCard, setActiveCard] = useState<SegmentCard | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [showSaveHint, setShowSaveHint] = useState(true);
+  const videoElementRef = useRef<HTMLVideoElement | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
 
   const video = videos[activeIndex] ?? defaultDemoVideos[0];
 
@@ -40,7 +43,127 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
     setActiveIndex((index) => (index + direction + 3) % 3);
   }
 
-  function buildCardFromVideo() {
+  function drawVideoFrame(videoElement: HTMLVideoElement) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 720;
+    canvas.height = 960;
+    const context = canvas.getContext('2d');
+    if (!context || !videoElement.videoWidth || !videoElement.videoHeight) return '';
+
+    const scale = Math.max(canvas.width / videoElement.videoWidth, canvas.height / videoElement.videoHeight);
+    const width = videoElement.videoWidth * scale;
+    const height = videoElement.videoHeight * scale;
+    const x = (canvas.width - width) / 2;
+    const y = (canvas.height - height) / 2;
+    context.drawImage(videoElement, x, y, width, height);
+    return canvas.toDataURL('image/jpeg', 0.82);
+  }
+
+  function seekVideo(videoElement: HTMLVideoElement, time: number) {
+    return new Promise<void>((resolve) => {
+      const duration = Number.isFinite(videoElement.duration) ? videoElement.duration : time;
+      const target = Math.max(0, Math.min(time, duration || time));
+      const finish = () => {
+        window.clearTimeout(timeout);
+        videoElement.removeEventListener('seeked', finish);
+        resolve();
+      };
+      const timeout = window.setTimeout(finish, 700);
+      videoElement.addEventListener('seeked', finish, { once: true });
+      videoElement.currentTime = target;
+    });
+  }
+
+  async function captureVideoFrameAt(videoElement: HTMLVideoElement, time: number) {
+    const originalTime = videoElement.currentTime;
+    const wasPaused = videoElement.paused;
+    await seekVideo(videoElement, time);
+    const image = drawVideoFrame(videoElement);
+    await seekVideo(videoElement, originalTime);
+    if (!wasPaused) void videoElement.play();
+    return image;
+  }
+
+  function drawCoverText(context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number) {
+    const chars = Array.from(text);
+    let line = '';
+    let top = y;
+    let lineCount = 0;
+
+    chars.forEach((char) => {
+      const nextLine = line + char;
+      if (context.measureText(nextLine).width > maxWidth && line) {
+        context.fillText(line, x, top);
+        line = char;
+        top += 46;
+        lineCount += 1;
+      } else {
+        line = nextLine;
+      }
+    });
+
+    if (line && lineCount < 2) context.fillText(line, x, top);
+  }
+
+  function createGeneratedCover(frame: number) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 720;
+    canvas.height = 960;
+    const context = canvas.getContext('2d');
+    if (!context) return '';
+
+    const palettes = [
+      ['#fff4d6', '#b7f3d1', '#f6a55f'],
+      ['#e0f2fe', '#172554', '#22d3ee'],
+      ['#edf7ef', '#bfdbfe', '#86efac'],
+    ];
+    const palette = palettes[activeIndex] ?? palettes[0];
+    const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, palette[0]);
+    gradient.addColorStop(0.58, palette[1]);
+    gradient.addColorStop(1, palette[2]);
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = 'rgba(255,255,255,0.42)';
+    context.beginPath();
+    context.arc(520, 180, 150, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = 'rgba(255,255,255,0.32)';
+    context.beginPath();
+    context.arc(150, 760, 210, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = 'rgba(24,24,27,0.78)';
+    context.font = '600 42px sans-serif';
+    drawCoverText(context, video.videoTitle, 56, 650, 560);
+    context.font = '400 24px sans-serif';
+    context.fillStyle = 'rgba(24,24,27,0.56)';
+    context.fillText(`保存帧 ${formatSeconds(frame)}`, 56, 825);
+    return canvas.toDataURL('image/jpeg', 0.88);
+  }
+
+  async function getCover(mode: 'current_frame' | 'segment_start_frame') {
+    const videoElement = videoElementRef.current;
+    const frame = mode === 'segment_start_frame'
+      ? video.defaultSegmentStart
+      : videoElement?.currentTime ?? video.defaultSegmentStart;
+
+    if (video.videoDataUrl && videoElement && videoElement.readyState >= 2 && videoElement.videoWidth) {
+      const coverImage = mode === 'segment_start_frame'
+        ? await captureVideoFrameAt(videoElement, frame)
+        : drawVideoFrame(videoElement);
+
+      if (coverImage) return { coverImage, coverFrame: frame, coverSource: mode };
+    }
+
+    return {
+      coverImage: createGeneratedCover(frame),
+      coverFrame: frame,
+      coverSource: 'generated_placeholder' as const,
+    };
+  }
+
+  async function buildCardFromVideo(mode: 'current_frame' | 'segment_start_frame' = 'current_frame') {
+    const cover = await getCover(mode);
     const budgetResult = runBudgetGate({
       videoId: video.videoId,
       tags: video.tags,
@@ -68,6 +191,7 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
       segmentNote: video.segmentNote,
       budgetResult,
       adDecision,
+      ...cover,
     });
 
     saveCard(card);
@@ -90,6 +214,35 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
       });
     }
     setActiveCard(card);
+  }
+
+  function clearLongPressTimer() {
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }
+
+  function onBookmarkPointerDown() {
+    longPressTriggeredRef.current = false;
+    clearLongPressTimer();
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      void buildCardFromVideo('segment_start_frame');
+    }, 650);
+  }
+
+  function onBookmarkPointerUp() {
+    clearLongPressTimer();
+  }
+
+  function onBookmarkClick() {
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false;
+      return;
+    }
+
+    void buildCardFromVideo('current_frame');
   }
 
   function recordCardAction(eventType: 'card_saved' | 'card_shared' | 'card_added_to_clipbook') {
@@ -118,7 +271,7 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
     <main className="relative min-h-screen overflow-hidden bg-black text-white" onWheel={onWheel} onTouchStart={(event) => setTouchStartY(event.touches[0].clientY)} onTouchEnd={onTouchEnd}>
       <section className="relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col justify-between overflow-hidden bg-slate-950 shadow-2xl shadow-black md:my-0">
         {video.videoDataUrl ? (
-          <video key={video.videoId + video.videoDataUrl} src={video.videoDataUrl} className="absolute inset-0 h-full w-full object-cover" autoPlay muted loop playsInline />
+          <video ref={videoElementRef} key={video.videoId + video.videoDataUrl} src={video.videoDataUrl} className="absolute inset-0 h-full w-full object-cover" autoPlay muted loop playsInline />
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(45,212,191,0.42),transparent_28%),radial-gradient(circle_at_70%_55%,rgba(251,146,60,0.34),transparent_32%),linear-gradient(160deg,#020617,#111827_50%,#0f172a)]" />
         )}
@@ -153,7 +306,16 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
                 保存这一刻
               </span>
             ) : null}
-            <button className="text-white drop-shadow-[0_2px_7px_rgba(0,0,0,0.65)]" type="button" onClick={buildCardFromVideo} aria-label="保存这一刻">
+            <button
+              className="text-white drop-shadow-[0_2px_7px_rgba(0,0,0,0.65)]"
+              type="button"
+              onPointerDown={onBookmarkPointerDown}
+              onPointerUp={onBookmarkPointerUp}
+              onPointerLeave={clearLongPressTimer}
+              onPointerCancel={clearLongPressTimer}
+              onClick={onBookmarkClick}
+              aria-label="保存这一刻"
+            >
               <Bookmark className="h-8 w-8" strokeWidth={2.1} />
             </button>
           </div>
@@ -171,10 +333,10 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
           <p className="text-sm font-semibold">{video.authorName}</p>
           <p className="mt-2 max-w-[78%] text-sm leading-6 text-white/82">{video.videoDescription}</p>
         </section>
-        <footer className="absolute bottom-0 left-0 right-0 z-20 grid grid-cols-5 border-t border-white/10 bg-black/35 px-2 py-3 text-center text-xs text-white/70 backdrop-blur">
-          <button type="button" className="font-semibold text-white">首页</button>
+        <footer className="absolute bottom-0 left-0 right-0 z-20 grid grid-cols-5 border-t border-white/30 bg-zinc-200/72 px-2 py-3 text-center text-xs text-slate-700 shadow-[0_-10px_28px_rgba(15,23,42,0.14)] backdrop-blur-md">
+          <button type="button" className="font-semibold text-slate-950">首页</button>
           <button type="button">朋友</button>
-          <button type="button" className="text-lg leading-none text-white">+</button>
+          <button type="button" className="text-lg leading-none text-slate-950">+</button>
           <button type="button">消息</button>
           <button type="button" onClick={onOpenProfile}>我</button>
         </footer>

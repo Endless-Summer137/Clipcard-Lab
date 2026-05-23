@@ -32,6 +32,11 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
   const sourceText = getSourceText(input);
   const isLightCard = input.budgetResult.level === 0 || (!hasTranscript && !hasNote);
   const createdAt = new Date().toISOString();
+  const coverFields = {
+    coverImage: input.coverImage,
+    coverFrame: input.coverFrame,
+    coverSource: input.coverSource,
+  };
 
   if (isLightCard) {
     return {
@@ -46,6 +51,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
       evidenceNote: '当前没有足够的片段说明或字幕/口播摘录；系统不能假装已经看懂视频画面。',
       adDecision: input.adDecision,
       createdAt,
+      ...coverFields,
     };
   }
 
@@ -64,6 +70,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
       evidenceNote: '本卡片按 Level 1 轻量预算生成，适合保存当前瞬间；关键帧和最小音频窗口只作为后续识别准备。',
       adDecision: input.adDecision,
       createdAt,
+      ...coverFields,
     };
   }
 
@@ -83,5 +90,6 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
       : '本卡片基于视频简介、标签和片段说明生成；当前未接入视觉/音频模型，不能自动理解画面或声音。',
     adDecision: input.adDecision,
     createdAt,
+    ...coverFields,
   };
 }
