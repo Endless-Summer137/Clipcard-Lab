@@ -66,6 +66,9 @@
 - Added activity metadata fields to demo videos and generated cards (`activityId`, `activityName`, `activityCta`, `targetClipbookTemplate`), with food and game demos enabled and the travel demo intentionally disabled.
 - Updated the activity quick preview to show the activity label and `加入活动手账 / 分享 / 查看完整卡片`, and routed activity clipbook entry to the recommended template without auto-layout.
 - Added activity labels to shared card thumbnails and changed empty-state copy in card and clipbook pages toward activity collection.
+- Added source-backflow fields to generated and stored cards, including source author, source video id/title/url, and segment time normalization for existing demo cards.
+- Added a clear but quiet source-video area in `CardDetailView`, with original author, original video title, segment time, and a placeholder original-video jump action.
+- Added source-video lists to saved clipbook detail pages and replaced clipbook one-click video publishing placeholders with a publish-preview modal that auto-lists all source clips.
 
 ## Validation
 
@@ -111,6 +114,8 @@
 - Browser verification for this pass was blocked by the Browser URL policy: the plugin rejected both the temporary localhost preview and the local `file://` preview. Static source review confirmed the default clipbook route now renders the home page, template selection enters draft editing, `保存手账` writes `clipcard_clipbooks`, saved entries open detail, and detail `继续编辑` updates the existing 手账.
 - `npm.cmd run build` completed successfully after changing the feed ClipCard entry into activity capsules.
 - Source validation confirmed the right rail no longer renders a `保存这一刻` button, demo videos 1 and 2 carry activity metadata, demo video 3 has `activityEnabled: false`, generated cards receive `activityName`, and activity preview exposes `加入活动手账`.
+- `npm.cmd run build` completed successfully after adding source-backflow fields, card-detail source attribution, clipbook source lists, and the publish-preview modal.
+- Browser verification confirmed `CardDetailView` shows `@clipcard_food《深夜小店热汤》` with `00:08–00:13` and a source jump feedback, a saved clipbook detail shows the source list, and `一键发布为视频` opens a `发布活动手账视频` preview whose confirmation reports that source information will follow the video description.
 
 ## Current Repository Agreement
 

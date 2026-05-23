@@ -40,6 +40,27 @@ export function getVideoSourceName(card: SegmentCard) {
   return map[card.videoId] ?? '演示视频片段';
 }
 
+export function getSourceAuthor(card: SegmentCard) {
+  const author = card.sourceAuthor?.trim();
+  if (author) return author.startsWith('@') ? author : `@${author}`;
+
+  const map: Record<string, string> = {
+    demo_food_001: '@clipcard_food',
+    demo_game_001: '@clipcard_game',
+    demo_travel_001: '@clipcard_travel',
+  };
+  return map[card.videoId] ?? '@clipcard_demo';
+}
+
+export function getSourceVideoUrl(card: SegmentCard) {
+  if (card.sourceVideoUrl) return card.sourceVideoUrl;
+  return `https://example.com/clipcard/${card.sourceVideoId ?? card.videoId}`;
+}
+
+export function getSourceLine(card: SegmentCard) {
+  return `${getSourceAuthor(card)}《${getVideoSourceName(card)}》${formatSeconds(card.segmentStart)}–${formatSeconds(card.segmentEnd)}`;
+}
+
 export function getCardKind(card: SegmentCard) {
   const text = `${card.cardType} ${card.title} ${card.summary}`;
   const duration = Math.max(0, card.segmentEnd - card.segmentStart);
@@ -262,12 +283,14 @@ export function CardDetailView({ card, onClose, onDeleted }: { card: SegmentCard
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [isEditingReflection, setIsEditingReflection] = useState(false);
   const [reflectionDraft, setReflectionDraft] = useState(currentCard.personalReflection?.text ?? '');
+  const [sourceFeedback, setSourceFeedback] = useState('');
 
   useEffect(() => {
     const nextCard = getCardById(card.cardId) ?? card;
     setCurrentCard(nextCard);
     setReflectionDraft(nextCard.personalReflection?.text ?? '');
     setIsEditingReflection(false);
+    setSourceFeedback('');
   }, [card]);
 
   function openReflectionEditor() {
@@ -349,8 +372,24 @@ export function CardDetailView({ card, onClose, onDeleted }: { card: SegmentCard
                 <p className="mt-1">{currentCard.saveReason}</p>
               </div>
               <div>
-                <p className={`text-xs font-medium ${theme.accent}`}>来源视频</p>
-                <p className="mt-1">{getVideoSourceName(currentCard)}</p>
+                <section className="rounded-3xl bg-white/38 p-3 shadow-sm">
+                  <p className={`text-xs font-medium ${theme.accent}`}>来源视频</p>
+                  <p className="mt-1 break-words text-sm leading-6">
+                    来源视频：{getSourceAuthor(currentCard)}《{getVideoSourceName(currentCard)}》
+                  </p>
+                  <p className={`mt-1 text-xs ${theme.muted}`}>
+                    片段时间：{formatSeconds(currentCard.segmentStart)}–{formatSeconds(currentCard.segmentEnd)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setSourceFeedback('跳转原视频。')}
+                    className={`mt-2 text-xs font-medium ${theme.accent}`}
+                    aria-label={`查看原视频 ${getSourceVideoUrl(currentCard)}`}
+                  >
+                    查看原视频 →
+                  </button>
+                  {sourceFeedback ? <p className={`mt-1 text-xs ${theme.muted}`}>{sourceFeedback}</p> : null}
+                </section>
               </div>
               <div>
                 <p className={`text-xs font-medium ${theme.accent}`}>判断依据</p>

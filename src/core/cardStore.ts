@@ -13,12 +13,33 @@ function getFallbackVideoTitle(videoId: string) {
   return map[videoId] ?? '演示视频片段';
 }
 
+function getFallbackSourceAuthor(videoId: string) {
+  const map: Record<string, string> = {
+    demo_food_001: '@clipcard_food',
+    demo_game_001: '@clipcard_game',
+    demo_travel_001: '@clipcard_travel',
+  };
+  return map[videoId] ?? '@clipcard_demo';
+}
+
+function getFallbackSourceUrl(videoId: string) {
+  const map: Record<string, string> = {
+    demo_food_001: 'https://example.com/clipcard/demo_food_001',
+    demo_game_001: 'https://example.com/clipcard/demo_game_001',
+    demo_travel_001: 'https://example.com/clipcard/demo_travel_001',
+  };
+  return map[videoId] ?? `https://example.com/clipcard/${videoId || 'demo'}`;
+}
+
 function normalizeCard(card: SegmentCard): SegmentCard {
   return {
     ...card,
     createdAt: card.createdAt ?? new Date().toISOString(),
     segmentSource: card.segmentSource ?? 'default_demo_segment',
     sourceVideoTitle: card.sourceVideoTitle ?? getFallbackVideoTitle(card.videoId),
+    sourceAuthor: card.sourceAuthor ?? getFallbackSourceAuthor(card.videoId),
+    sourceVideoId: card.sourceVideoId ?? card.videoId,
+    sourceVideoUrl: card.sourceVideoUrl ?? getFallbackSourceUrl(card.videoId),
     personalReflection: card.personalReflection?.text?.trim()
       ? {
         text: card.personalReflection.text.slice(0, 300),
@@ -108,6 +129,9 @@ export function seedDemoCardsIfEmpty() {
       cardId: 'demo_card_food',
       videoId: 'demo_food_001',
       sourceVideoTitle: '深夜小店热汤',
+      sourceAuthor: '@clipcard_food',
+      sourceVideoId: 'demo_food_001',
+      sourceVideoUrl: 'https://example.com/clipcard/demo_food_001',
       segmentStart: 8,
       segmentEnd: 13,
       cardType: '消费意图卡',
@@ -121,6 +145,9 @@ export function seedDemoCardsIfEmpty() {
       cardId: 'demo_card_game',
       videoId: 'demo_game_001',
       sourceVideoTitle: '团战反打高光',
+      sourceAuthor: '@clipcard_game',
+      sourceVideoId: 'demo_game_001',
+      sourceVideoUrl: 'https://example.com/clipcard/demo_game_001',
       segmentStart: 21,
       segmentEnd: 28,
       cardType: '游戏高光卡',
@@ -134,6 +161,9 @@ export function seedDemoCardsIfEmpty() {
       cardId: 'demo_card_travel',
       videoId: 'demo_travel_001',
       sourceVideoTitle: '城市转角风景',
+      sourceAuthor: '@clipcard_travel',
+      sourceVideoId: 'demo_travel_001',
+      sourceVideoUrl: 'https://example.com/clipcard/demo_travel_001',
       segmentStart: 4,
       segmentEnd: 11,
       cardType: '旅行灵感卡',

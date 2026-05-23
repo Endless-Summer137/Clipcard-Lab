@@ -99,6 +99,9 @@ export interface CardEngineInput {
   segmentNote: string;
   budgetResult: BudgetResult;
   adDecision: AdDecision;
+  sourceAuthor?: string;
+  sourceVideoId?: string;
+  sourceVideoUrl?: string;
   coverImage?: string;
   coverFrame?: number;
   coverSource?: 'current_frame' | 'segment_start_frame' | 'generated_placeholder' | 'future_best_frame';
@@ -115,6 +118,9 @@ export interface SegmentCard {
   segmentEnd: number;
   segmentSource: SegmentSource;
   sourceVideoTitle: string;
+  sourceAuthor?: string;
+  sourceVideoId?: string;
+  sourceVideoUrl?: string;
   cardType: string;
   title: string;
   summary: string;
@@ -181,6 +187,7 @@ export interface DemoVideoInput {
   adCandidate: string;
   videoDataUrl?: string;
   authorName?: string;
+  sourceVideoUrl?: string;
   activityEnabled?: boolean;
   activityId?: string;
   activityName?: string;

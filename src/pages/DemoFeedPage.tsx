@@ -261,6 +261,9 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
         segmentNote: video.segmentNote,
         budgetResult,
         adDecision,
+        sourceAuthor: video.authorName,
+        sourceVideoId: video.videoId,
+        sourceVideoUrl: video.sourceVideoUrl,
         ...(video.activityEnabled ? {
           activityId: video.activityId,
           activityName: video.activityName,

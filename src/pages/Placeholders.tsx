@@ -11,11 +11,13 @@ import {
 import type { ClipbookSlot, ClipbookTemplate } from '../core/clipbookTemplateStore';
 import { getTemplates, updateClipbookSlot, updateTemplate } from '../core/clipbookTemplateStore';
 import { useClipCards } from '../hooks/useClipCards';
-import { CardDetailView, CardThumbnail } from './CardDetailView';
+import { CardDetailView, CardThumbnail, getSourceLine, getSourceVideoUrl } from './CardDetailView';
 import { UserSubPageShell } from './UserSubPageShell';
 
 type NavigateTarget = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook' | 'dresser';
 type TemplateId = 'fps' | 'landscape' | 'blank';
+
+const SOURCE_BACKFLOW_HINT = '发布手账时会自动标注原作者和原视频，帮助来源视频获得回流。';
 
 interface SimplePageProps {
   onNavigate: (page: NavigateTarget, options?: { dev?: boolean; template?: TemplateId }) => void;
@@ -70,6 +72,7 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
   const [homeFeedback, setHomeFeedback] = useState('');
   const [templateFeedback, setTemplateFeedback] = useState('');
   const [templateError, setTemplateError] = useState('');
+  const [publishPreview, setPublishPreview] = useState<{ title: string; sourceCards: SegmentCard[] } | null>(null);
 
   const selectedTemplate = templates.find((item) => getTemplateId(item) === selectedTemplateId) ?? templates[0];
   const viewingClipbook = viewingClipbookId ? clipbooks.find((clipbook) => clipbook.clipbookId === viewingClipbookId) ?? null : null;
@@ -103,6 +106,7 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
     setHomeFeedback('');
     setTemplateFeedback('');
     setTemplateError('');
+    setPublishPreview(null);
     refreshCards();
   }
 
@@ -113,7 +117,9 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
   function openClipbookDetail(clipbook: Clipbook) {
     setViewingClipbookId(clipbook.clipbookId);
     setMode('detail');
+    setFeedback('');
     setHomeFeedback('');
+    setPublishPreview(null);
     refreshCards();
   }
 
@@ -128,6 +134,7 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
     setMode('edit');
     setSelectingSlotId(null);
     setFeedback('');
+    setPublishPreview(null);
     refreshCards();
   }
 
@@ -138,6 +145,7 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
     setViewingClipbookId(null);
     setSelectingSlotId(null);
     setFeedback('');
+    setPublishPreview(null);
     setHomeFeedback(message ?? '');
   }
 
@@ -191,6 +199,19 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
     setBookTitle(savedClipbook?.title ?? title);
     if (templateId) onNavigate('clipbook', { dev: devMode });
     returnToHome('手账已保存');
+  }
+
+  function openPublishPreview(title: string, sourceCards: SegmentCard[]) {
+    setFeedback('');
+    setPublishPreview({
+      title: title.trim() || '我的活动手账',
+      sourceCards,
+    });
+  }
+
+  function confirmPublishPreview() {
+    setPublishPreview(null);
+    setFeedback('已生成发布预览，来源信息将随视频简介展示。');
   }
 
   async function onTemplateImageUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -260,6 +281,7 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
 
   if (mode === 'detail' && viewingClipbook) {
     const detailTemplate = templates.find((item) => getTemplateId(item) === normalizeTemplateId(viewingClipbook.templateId)) ?? selectedTemplate;
+    const detailSourceCards = getCardsFromSlotPlacements(viewingClipbook.slots, cards);
 
     return (
       <UserSubPageShell
@@ -281,6 +303,8 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
           />
         </section>
 
+        <SourceVideoList sourceCards={detailSourceCards} onOpenSource={() => setFeedback('跳转原视频。')} />
+
         <section className="grid gap-3">
           <button type="button" onClick={() => setFeedback('已生成图片，后续可接入系统相册保存。')} className="rounded-full bg-stone-900 px-4 py-2.5 text-sm font-medium text-white">
             保存到相册
@@ -289,7 +313,7 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
             <button type="button" onClick={() => setFeedback('分享手账功能已预留。')} className="rounded-full bg-white px-4 py-2.5 text-sm font-medium text-stone-800 shadow-sm shadow-stone-200">
               分享
             </button>
-            <button type="button" onClick={() => setFeedback('一键发布为视频功能已预留。')} className="rounded-full bg-emerald-100 px-4 py-2.5 text-sm font-medium text-emerald-800">
+            <button type="button" onClick={() => openPublishPreview(viewingClipbook.title, detailSourceCards)} className="rounded-full bg-emerald-100 px-4 py-2.5 text-sm font-medium text-emerald-800">
               一键发布为视频
             </button>
           </div>
@@ -298,6 +322,14 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
           </button>
           {feedback ? <p className="text-center text-sm text-emerald-700">{feedback}</p> : null}
         </section>
+        {publishPreview ? (
+          <PublishPreviewModal
+            title={publishPreview.title}
+            sourceCards={publishPreview.sourceCards}
+            onCancel={() => setPublishPreview(null)}
+            onConfirm={confirmPublishPreview}
+          />
+        ) : null}
       </UserSubPageShell>
     );
   }
@@ -398,7 +430,7 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
             <button type="button" onClick={() => setFeedback('分享手账功能已预留。')} className="rounded-full bg-white px-4 py-2.5 text-sm font-medium text-stone-800 shadow-sm shadow-stone-200">
               分享手账
             </button>
-            <button type="button" onClick={() => setFeedback('一键发布为视频功能已预留。')} className="rounded-full bg-emerald-100 px-4 py-2.5 text-sm font-medium text-emerald-800">
+            <button type="button" onClick={() => openPublishPreview(bookTitle, getCardsFromSlotPlacements(draftSlots, cards))} className="rounded-full bg-emerald-100 px-4 py-2.5 text-sm font-medium text-emerald-800">
               一键发布为视频
             </button>
           </div>
@@ -414,6 +446,14 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
           selectedSlotId={selectingSlotId}
           onClose={() => setSelectingSlotId(null)}
           onSelect={placeCard}
+        />
+      ) : null}
+      {publishPreview ? (
+        <PublishPreviewModal
+          title={publishPreview.title}
+          sourceCards={publishPreview.sourceCards}
+          onCancel={() => setPublishPreview(null)}
+          onConfirm={confirmPublishPreview}
         />
       ) : null}
     </UserSubPageShell>
@@ -517,6 +557,78 @@ function ClipbookListCard({
         <span className="mt-3 block text-xs text-stone-400">更新于 {formatTimestamp(clipbook.updatedAt || clipbook.createdAt)}</span>
       </span>
     </button>
+  );
+}
+
+function SourceVideoList({ sourceCards, onOpenSource }: { sourceCards: SegmentCard[]; onOpenSource: () => void }) {
+  return (
+    <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
+      <h2 className="font-semibold">来源视频</h2>
+      <p className="mt-1 text-xs leading-5 text-stone-500">{SOURCE_BACKFLOW_HINT}</p>
+      {sourceCards.length > 0 ? (
+        <ol className="mt-3 space-y-2">
+          {sourceCards.map((card, index) => (
+            <li key={card.cardId} className="rounded-2xl bg-stone-50 px-3 py-2">
+              <div className="flex items-start justify-between gap-3">
+                <p className="min-w-0 flex-1 break-words text-sm leading-6 text-stone-700">
+                  <span className="mr-1 text-stone-400">{index + 1}.</span>
+                  {getSourceLine(card)}
+                </p>
+                <button
+                  type="button"
+                  onClick={onOpenSource}
+                  className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-stone-700 shadow-sm shadow-stone-200"
+                  aria-label={`查看原视频 ${getSourceVideoUrl(card)}`}
+                >
+                  查看原视频
+                </button>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-3 rounded-2xl bg-stone-50 px-4 py-4 text-center text-sm leading-6 text-stone-500">
+          这本手账还没有放入卡片，暂无可标注的来源视频。
+        </p>
+      )}
+    </section>
+  );
+}
+
+function PublishPreviewModal({
+  title,
+  sourceCards,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  sourceCards: SegmentCard[];
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-stone-900/35 px-4 backdrop-blur-sm">
+      <section className="w-full max-w-[430px] rounded-t-[30px] bg-[#fffdf7] p-5 text-stone-900 shadow-2xl">
+        <h2 className="text-lg font-semibold">发布活动手账视频</h2>
+        <div className="mt-4 rounded-2xl bg-stone-100 px-4 py-3">
+          <p className="text-xs font-medium text-stone-500">视频标题</p>
+          <p className="mt-1 text-sm font-semibold">{title || '我的活动手账'}</p>
+        </div>
+        <div className="mt-3 rounded-2xl bg-white px-4 py-3 shadow-sm shadow-stone-200">
+          <p className="text-xs font-medium text-stone-500">自动生成简介</p>
+          <p className="mt-2 whitespace-pre-line break-words text-sm leading-6 text-stone-700">{formatPublishDescription(sourceCards)}</p>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-stone-500">{SOURCE_BACKFLOW_HINT}</p>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button type="button" onClick={onCancel} className="rounded-full bg-stone-100 px-4 py-2.5 text-sm font-medium text-stone-700">
+            取消
+          </button>
+          <button type="button" onClick={onConfirm} className="rounded-full bg-stone-900 px-4 py-2.5 text-sm font-medium text-white">
+            确认发布
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -819,6 +931,30 @@ function getClipbookCoverImage(template: ClipbookTemplate, slots: ClipbookSlotPl
 
 function getClipbookCardCount(clipbook: Clipbook, cards: SegmentCard[]) {
   return clipbook.slots.filter((slot) => slot.cardId && cards.some((card) => card.cardId === slot.cardId)).length;
+}
+
+function getCardsFromSlotPlacements(slots: ClipbookSlotPlacement[], cards: SegmentCard[]) {
+  const usedCardIds = new Set<string>();
+  return slots.flatMap((slot) => {
+    if (!slot.cardId || usedCardIds.has(slot.cardId)) return [];
+    const card = cards.find((item) => item.cardId === slot.cardId);
+    if (!card) return [];
+    usedCardIds.add(slot.cardId);
+    return [card];
+  });
+}
+
+function formatPublishDescription(sourceCards: SegmentCard[]) {
+  const sourceLines = sourceCards.length > 0
+    ? sourceCards.map((card, index) => `${index + 1}. ${getSourceLine(card)}`)
+    : ['暂无已放入卡片。'];
+
+  return [
+    '本手账收集自以下视频片段：',
+    ...sourceLines,
+    '',
+    '每条来源将自动附带可跳转原视频入口。',
+  ].join('\n');
 }
 
 function formatTimestamp(value: number) {

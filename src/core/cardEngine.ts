@@ -46,6 +46,9 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
   const sourceFields = {
     segmentSource: input.segmentSource,
     sourceVideoTitle: input.videoTitle,
+    sourceAuthor: input.sourceAuthor,
+    sourceVideoId: input.sourceVideoId ?? input.videoId,
+    sourceVideoUrl: input.sourceVideoUrl,
   };
 
   if (isLightCard) {

@@ -20,6 +20,7 @@ export const defaultDemoVideos: DemoVideoConfig[] = [
     segmentNote: '菜品近景和店内氛围同时出现。',
     adCandidate: '门店团购',
     authorName: '@clipcard_food',
+    sourceVideoUrl: 'https://example.com/clipcard/demo_food_001',
     duration: 72,
     activityEnabled: true,
     activityId: 'activity_food_partner',
@@ -38,6 +39,7 @@ export const defaultDemoVideos: DemoVideoConfig[] = [
     segmentNote: '团战反打和操作节奏比较集中。',
     adCandidate: '游戏外设',
     authorName: '@clipcard_game',
+    sourceVideoUrl: 'https://example.com/clipcard/demo_game_001',
     duration: 86,
     activityEnabled: true,
     activityId: 'activity_game_highlight',
@@ -56,6 +58,7 @@ export const defaultDemoVideos: DemoVideoConfig[] = [
     segmentNote: '画面出现城市转角和地点停留，像是出行灵感片段。',
     adCandidate: '景区广告',
     authorName: '@clipcard_travel',
+    sourceVideoUrl: 'https://example.com/clipcard/demo_travel_001',
     duration: 60,
     activityEnabled: false,
   },
@@ -76,6 +79,7 @@ export function readDemoConfig() {
       activityName: parsed[index]?.activityName ?? fallback.activityName,
       activityCta: parsed[index]?.activityCta ?? fallback.activityCta,
       targetClipbookTemplate: parsed[index]?.targetClipbookTemplate ?? fallback.targetClipbookTemplate,
+      sourceVideoUrl: parsed[index]?.sourceVideoUrl ?? fallback.sourceVideoUrl,
     }));
   } catch {
     return defaultDemoVideos;

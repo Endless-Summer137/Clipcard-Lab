@@ -66,6 +66,14 @@ export function AdminConfigPage({ onNavigate }: AdminConfigPageProps) {
                 <input value={item.videoTitle} onChange={(event) => updateVideo(index, { videoTitle: event.target.value })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
               </label>
               <label className="mt-3 block text-sm text-slate-300">
+                authorName
+                <input value={item.authorName ?? ''} onChange={(event) => updateVideo(index, { authorName: event.target.value })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
+                sourceVideoUrl
+                <input value={item.sourceVideoUrl ?? ''} onChange={(event) => updateVideo(index, { sourceVideoUrl: event.target.value })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
+              </label>
+              <label className="mt-3 block text-sm text-slate-300">
                 videoDescription
                 <textarea value={item.videoDescription} onChange={(event) => updateVideo(index, { videoDescription: event.target.value })} rows={3} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
               </label>
