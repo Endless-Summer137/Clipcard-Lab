@@ -1,8 +1,7 @@
 import { X } from 'lucide-react';
-import type { ChangeEvent } from 'react';
-import { useState } from 'react';
+import type { ChangeEvent, MouseEvent } from 'react';
+import { useEffect, useState } from 'react';
 import type { SegmentCard } from '../core/types';
-import { getCards } from '../core/cardStore';
 import type { ClipbookSlot, ClipbookTemplate } from '../core/clipbookTemplateStore';
 import { getClipbookTemplates, updateClipbookSlot, updateClipbookTemplate } from '../core/clipbookTemplateStore';
 import {
@@ -10,8 +9,9 @@ import {
   removeClipbookPlacement,
   setClipbookPlacement,
 } from '../core/clipbookPlacementStore';
-import { CardDetailView, CardMini, getCardDisplayTitle, getCardTheme } from './CardDetailView';
+import { CardDetailView, CardThumbnail } from './CardDetailView';
 import { UserSubPageShell } from './UserSubPageShell';
+import { useClipCards } from './useClipCards';
 
 type NavigateTarget = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook' | 'dresser';
 
@@ -25,14 +25,14 @@ interface ClipbookPageProps extends SimplePageProps {
 
 export function MyCardsPage({ onNavigate }: SimplePageProps) {
   const [selectedCard, setSelectedCard] = useState<SegmentCard | null>(null);
-  const [cards, setCards] = useState<SegmentCard[]>(() => getCards());
+  const { cards, refreshCards } = useClipCards();
 
   return (
     <UserSubPageShell title="我的卡片" onBack={() => onNavigate('profile', { dev: false })} contentClassName="mt-5">
       <section>
         {cards.length > 0 ? (
           <div className="grid grid-cols-3 gap-3 pb-5">
-            {cards.map((card) => <CardMini key={card.cardId} card={card} onClick={() => setSelectedCard(card)} />)}
+            {cards.map((card) => <CardThumbnail key={card.cardId} card={card} onClick={() => setSelectedCard(card)} />)}
           </div>
         ) : (
           <div className="mt-24 rounded-3xl bg-[#f3f0e7] px-5 py-9 text-center text-sm leading-6 text-stone-500 shadow-sm shadow-stone-200">
@@ -45,7 +45,7 @@ export function MyCardsPage({ onNavigate }: SimplePageProps) {
         <CardDetailView
           card={selectedCard}
           onClose={() => setSelectedCard(null)}
-          onDeleted={(cardId) => setCards((current) => current.filter((card) => card.cardId !== cardId))}
+          onDeleted={refreshCards}
         />
       ) : null}
     </UserSubPageShell>
@@ -53,7 +53,7 @@ export function MyCardsPage({ onNavigate }: SimplePageProps) {
 }
 
 export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps) {
-  const [cards, setCards] = useState<SegmentCard[]>(() => getCards());
+  const { cards, refreshCards } = useClipCards();
   const [templates, setTemplates] = useState<ClipbookTemplate[]>(() => getClipbookTemplates());
   const [selectedTemplateId, setSelectedTemplateId] = useState('fps');
   const [placements, setPlacements] = useState(() => getClipbookPlacements('fps'));
@@ -89,7 +89,7 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
   }
 
   function openSlotPicker(slotId: string) {
-    setCards(getCards());
+    refreshCards();
     setSelectingSlotId(slotId);
   }
 
@@ -223,6 +223,7 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
       {selectingSlotId ? (
         <CardPickerModal
           placedCardIds={placedCardIds}
+          devMode={devMode}
           onClose={() => setSelectingSlotId(null)}
           onSelect={placeCard}
         />
@@ -265,10 +266,17 @@ function TemplateCanvas({
         {template.slots.map((slot) => {
           const card = getCardInSlot(slot.id);
           return (
-            <button
+            <div
               key={slot.id}
-              type="button"
               onClick={() => onSlotClick(slot.id)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onSlotClick(slot.id);
+                }
+              }}
+              role="button"
+              tabIndex={0}
               className="group absolute rounded-2xl border-2 border-dashed border-white/85 bg-white/24 p-1 shadow-sm backdrop-blur-[1px] transition hover:border-emerald-300 hover:bg-emerald-50/55 active:border-emerald-300 active:bg-emerald-50/55"
               style={{ left: `${slot.x}%`, top: `${slot.y}%`, width: `${slot.w}%`, height: `${slot.h}%` }}
             >
@@ -277,7 +285,7 @@ function TemplateCanvas({
               ) : (
                 <span className="flex h-full items-center justify-center text-2xl font-light text-white drop-shadow group-hover:text-emerald-700 group-active:text-emerald-700">+</span>
               )}
-            </button>
+            </div>
           );
         })}
         {cards.length === 0 ? <p className="absolute inset-x-6 bottom-6 rounded-2xl bg-white/80 px-4 py-3 text-center text-xs text-stone-500">先在视频里保存一张卡片，再放入槽位。</p> : null}
@@ -303,15 +311,10 @@ function BuiltInTemplateBackground({ template }: { template: ClipbookTemplate })
   return <div className="absolute inset-0 border-l-[18px] border-stone-200 bg-[#fffaf0]" />;
 }
 
-function SlotCard({ card, onClear }: { card: SegmentCard; onClear: (event: React.MouseEvent<HTMLButtonElement>) => void }) {
-  const theme = getCardTheme(card);
+function SlotCard({ card, onClear }: { card: SegmentCard; onClear: (event: MouseEvent<HTMLButtonElement>) => void }) {
   return (
-    <div className={`relative flex h-full flex-col overflow-hidden rounded-xl border p-1.5 text-left text-[10px] ${card.coverImage ? 'border-white bg-stone-800 text-white' : theme.mini}`}>
-      {card.coverImage ? <img src={card.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" /> : null}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5">
-        <span className="rounded-full bg-white/85 px-1.5 py-0.5 text-[9px] text-stone-800">{card.cardType}</span>
-        <p className="mt-1 line-clamp-1 font-semibold text-white">{getCardDisplayTitle(card)}</p>
-      </div>
+    <div className="relative h-full">
+      <CardThumbnail card={card} className="h-full w-full rounded-xl" />
       <button type="button" onClick={onClear} aria-label="移除卡片" className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-black/50 text-xs text-white">
         ×
       </button>
@@ -321,14 +324,20 @@ function SlotCard({ card, onClear }: { card: SegmentCard; onClear: (event: React
 
 function CardPickerModal({
   placedCardIds,
+  devMode = false,
   onClose,
   onSelect,
 }: {
   placedCardIds: Set<string>;
+  devMode?: boolean;
   onClose: () => void;
   onSelect: (card: SegmentCard) => void;
 }) {
-  const [cards] = useState<SegmentCard[]>(() => getCards());
+  const { cards, refreshCards } = useClipCards();
+
+  useEffect(() => {
+    refreshCards();
+  }, [refreshCards]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/35 px-4 backdrop-blur-sm">
@@ -346,7 +355,7 @@ function CardPickerModal({
               return (
                 <div key={card.cardId} className="relative">
                   <div className={placed ? 'pointer-events-none grayscale opacity-40' : ''}>
-                    <CardMini card={card} onClick={() => onSelect(card)} />
+                    <CardThumbnail card={card} onClick={() => onSelect(card)} />
                   </div>
                   {placed ? (
                     <span className="pointer-events-none absolute inset-x-1 top-1/2 -rotate-12 rounded-full bg-stone-900/75 py-1 text-center text-xs font-semibold text-white">
@@ -362,6 +371,7 @@ function CardPickerModal({
             还没有可放入手账的卡片。先在视频里点击“保存这一刻”生成卡片。
           </p>
         )}
+        {devMode ? <p className="mt-2 text-center text-xs text-stone-400">当前 cardStore 卡片数量：{cards.length}</p> : null}
       </section>
     </div>
   );

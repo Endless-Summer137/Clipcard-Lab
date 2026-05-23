@@ -7,6 +7,7 @@ import { generateSegmentCard } from '../core/cardEngine';
 import { saveCard } from '../core/cardStore';
 import { recordEvent } from '../core/eventStore';
 import type { SegmentCard } from '../core/types';
+import { CardDetailView, CardQuickPreview } from './CardDetailView';
 import { defaultDemoVideos, readDemoConfig, type DemoVideoConfig } from './demoData';
 
 interface DemoFeedPageProps {
@@ -17,6 +18,9 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
   const [videos, setVideos] = useState<DemoVideoConfig[]>(() => readDemoConfig());
   const [activeIndex, setActiveIndex] = useState(0);
   const [activeCard, setActiveCard] = useState<SegmentCard | null>(null);
+  const [detailCard, setDetailCard] = useState<SegmentCard | null>(null);
+  const [cardFeedback, setCardFeedback] = useState('');
+  const [isGeneratingCard, setIsGeneratingCard] = useState(false);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [showSaveHint, setShowSaveHint] = useState(true);
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
@@ -40,6 +44,8 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
 
   function switchVideo(direction: 1 | -1) {
     setActiveCard(null);
+    setDetailCard(null);
+    setCardFeedback('');
     setActiveIndex((index) => (index + direction + 3) % 3);
   }
 
@@ -163,57 +169,66 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
   }
 
   async function buildCardFromVideo(mode: 'current_frame' | 'segment_start_frame' = 'current_frame') {
-    const cover = await getCover(mode);
-    const budgetResult = runBudgetGate({
-      videoId: video.videoId,
-      tags: video.tags,
-      segmentStart: video.defaultSegmentStart,
-      segmentEnd: video.defaultSegmentEnd,
-      transcriptExcerpt: video.transcriptExcerpt,
-      segmentNote: video.segmentNote,
-    });
-    const adDecision = runAdGate({
-      videoId: video.videoId,
-      tags: video.tags,
-      cardType: 'pending',
-      segmentNote: video.segmentNote,
-      transcriptExcerpt: video.transcriptExcerpt,
-      adCandidate: video.adCandidate,
-    });
-    const card = generateSegmentCard({
-      videoId: video.videoId,
-      videoTitle: video.videoTitle,
-      videoDescription: video.videoDescription,
-      tags: video.tags,
-      segmentStart: video.defaultSegmentStart,
-      segmentEnd: video.defaultSegmentEnd,
-      transcriptExcerpt: video.transcriptExcerpt,
-      segmentNote: video.segmentNote,
-      budgetResult,
-      adDecision,
-      ...cover,
-    });
+    setIsGeneratingCard(true);
+    setActiveCard(null);
+    setDetailCard(null);
+    setCardFeedback('');
 
-    saveCard(card);
-    recordEvent({
-      eventType: 'card_generated',
-      videoId: video.videoId,
-      cardId: card.cardId,
-      segmentStart: card.segmentStart,
-      segmentEnd: card.segmentEnd,
-      metadata: { budgetLevel: budgetResult.level, adDecision: adDecision.decision },
-    });
-    if (adDecision.decision === 'allow') {
+    try {
+      const cover = await getCover(mode);
+      const budgetResult = runBudgetGate({
+        videoId: video.videoId,
+        tags: video.tags,
+        segmentStart: video.defaultSegmentStart,
+        segmentEnd: video.defaultSegmentEnd,
+        transcriptExcerpt: video.transcriptExcerpt,
+        segmentNote: video.segmentNote,
+      });
+      const adDecision = runAdGate({
+        videoId: video.videoId,
+        tags: video.tags,
+        cardType: 'pending',
+        segmentNote: video.segmentNote,
+        transcriptExcerpt: video.transcriptExcerpt,
+        adCandidate: video.adCandidate,
+      });
+      const card = generateSegmentCard({
+        videoId: video.videoId,
+        videoTitle: video.videoTitle,
+        videoDescription: video.videoDescription,
+        tags: video.tags,
+        segmentStart: video.defaultSegmentStart,
+        segmentEnd: video.defaultSegmentEnd,
+        transcriptExcerpt: video.transcriptExcerpt,
+        segmentNote: video.segmentNote,
+        budgetResult,
+        adDecision,
+        ...cover,
+      });
+
+      saveCard(card);
       recordEvent({
-        eventType: 'ad_shown',
+        eventType: 'card_generated',
         videoId: video.videoId,
         cardId: card.cardId,
         segmentStart: card.segmentStart,
         segmentEnd: card.segmentEnd,
-        metadata: { adCandidate: video.adCandidate, adLabel: adDecision.adLabel },
+        metadata: { budgetLevel: budgetResult.level, adDecision: adDecision.decision },
       });
+      if (adDecision.decision === 'allow') {
+        recordEvent({
+          eventType: 'ad_shown',
+          videoId: video.videoId,
+          cardId: card.cardId,
+          segmentStart: card.segmentStart,
+          segmentEnd: card.segmentEnd,
+          metadata: { adCandidate: video.adCandidate, adLabel: adDecision.adLabel },
+        });
+      }
+      setActiveCard(card);
+    } finally {
+      setIsGeneratingCard(false);
     }
-    setActiveCard(card);
   }
 
   function clearLongPressTimer() {
@@ -247,6 +262,7 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
 
   function recordCardAction(eventType: 'card_saved' | 'card_shared' | 'card_added_to_clipbook') {
     if (!activeCard) return;
+    if (eventType === 'card_saved') saveCard(activeCard);
     recordEvent({
       eventType,
       videoId: activeCard.videoId,
@@ -254,6 +270,10 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
       segmentStart: activeCard.segmentStart,
       segmentEnd: activeCard.segmentEnd,
     });
+
+    if (eventType === 'card_saved') setCardFeedback('已保存到我的卡片');
+    if (eventType === 'card_shared') setCardFeedback('已生成分享卡片');
+    if (eventType === 'card_added_to_clipbook') setCardFeedback('已记录加入手账，稍后可去卡片手账排版');
   }
 
   function onWheel(event: WheelEvent<HTMLElement>) {
@@ -341,31 +361,36 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
           <button type="button" onClick={onOpenProfile}>我</button>
         </footer>
         <div className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-2">
-          {[0, 1, 2].map((index) => <button key={index} type="button" onClick={() => { setActiveCard(null); setActiveIndex(index); }} className={'h-2 w-2 rounded-full ' + (activeIndex === index ? 'bg-white' : 'bg-white/35')} aria-label={`切换视频 ${index + 1}`} />)}
+          {[0, 1, 2].map((index) => <button key={index} type="button" onClick={() => { setActiveCard(null); setDetailCard(null); setCardFeedback(''); setActiveIndex(index); }} className={'h-2 w-2 rounded-full ' + (activeIndex === index ? 'bg-white' : 'bg-white/35')} aria-label={`切换视频 ${index + 1}`} />)}
         </div>
       </section>
-      {activeCard ? (
-        <div className="absolute inset-0 z-40 flex items-end justify-center bg-black/28 px-3 pb-20">
-          <article className="w-full max-w-[390px] rounded-2xl border border-white/12 bg-zinc-950/92 p-4 text-white shadow-2xl backdrop-blur">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs text-white/55">
-                  {formatSeconds(activeCard.segmentStart)} - {formatSeconds(activeCard.segmentEnd)}
-                </p>
-                <h2 className="mt-1 text-base font-semibold leading-6">{activeCard.title}</h2>
-              </div>
-              <button type="button" onClick={() => setActiveCard(null)} className="text-xl leading-none text-white/60" aria-label="关闭片段卡">
-                ×
-              </button>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-white/76">{activeCard.summary}</p>
-            <div className="mt-4 flex gap-2 text-sm">
-              <button type="button" onClick={() => recordCardAction('card_saved')} className="flex-1 rounded-md bg-white px-3 py-2 font-medium text-zinc-950">保存</button>
-              <button type="button" onClick={() => recordCardAction('card_shared')} className="flex-1 rounded-md border border-white/18 px-3 py-2 text-white">分享</button>
-              <button type="button" onClick={() => recordCardAction('card_added_to_clipbook')} className="flex-1 rounded-md border border-white/18 px-3 py-2 text-white">加入手账</button>
-            </div>
-          </article>
+      {isGeneratingCard ? (
+        <div className="absolute inset-x-0 bottom-24 z-40 flex justify-center px-4">
+          <p className="rounded-full bg-white/92 px-4 py-2 text-sm font-medium text-stone-800 shadow-lg backdrop-blur">
+            正在生成片段卡……
+          </p>
         </div>
+      ) : null}
+      {activeCard ? (
+        <CardQuickPreview
+          card={activeCard}
+          feedback={cardFeedback}
+          onClose={() => setActiveCard(null)}
+          onSave={() => recordCardAction('card_saved')}
+          onShare={() => recordCardAction('card_shared')}
+          onAddToClipbook={() => recordCardAction('card_added_to_clipbook')}
+          onOpenDetail={() => setDetailCard(activeCard)}
+        />
+      ) : null}
+      {detailCard ? (
+        <CardDetailView
+          card={detailCard}
+          onClose={() => setDetailCard(null)}
+          onDeleted={() => {
+            setDetailCard(null);
+            setActiveCard(null);
+          }}
+        />
       ) : null}
     </main>
   );

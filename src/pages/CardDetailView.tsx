@@ -111,16 +111,12 @@ function getAdLabel(card: SegmentCard) {
   return '内容相关服务';
 }
 
-export function CardMini({ card, onClick }: { card: SegmentCard; onClick: () => void }) {
+export function CardThumbnail({ card, onClick, className = 'aspect-[3/4]' }: { card: SegmentCard; onClick?: () => void; className?: string }) {
   const theme = getCardTheme(card);
   const showCover = Boolean(card.coverImage) && getCardKind(card) !== 'light';
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`relative aspect-[3/4] min-w-0 overflow-hidden rounded-2xl border text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${showCover ? 'border-white bg-stone-200' : theme.mini}`}
-    >
+  const cardClassName = `relative ${className} min-w-0 overflow-hidden rounded-2xl border text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${showCover ? 'border-white bg-stone-200' : theme.mini}`;
+  const content = (
+    <>
       {showCover ? (
         <img src={card.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
@@ -132,7 +128,96 @@ export function CardMini({ card, onClick }: { card: SegmentCard; onClick: () => 
       <span className={`absolute inset-x-0 bottom-0 z-10 px-2.5 pb-2.5 pt-10 ${showCover ? 'bg-gradient-to-t from-black/70 via-black/32 to-transparent' : ''}`}>
         <span className={`line-clamp-2 text-sm font-semibold leading-5 ${showCover ? 'text-white drop-shadow' : ''}`}>{getCardDisplayTitle(card)}</span>
       </span>
+    </>
+  );
+
+  return onClick ? (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cardClassName}
+    >
+      {content}
     </button>
+  ) : (
+    <div className={cardClassName}>{content}</div>
+  );
+}
+
+export function CardMini(props: { card: SegmentCard; onClick: () => void }) {
+  return <CardThumbnail {...props} />;
+}
+
+export function CardQuickPreview({
+  card,
+  feedback,
+  onClose,
+  onSave,
+  onShare,
+  onAddToClipbook,
+  onOpenDetail,
+}: {
+  card: SegmentCard;
+  feedback?: string;
+  onClose: () => void;
+  onSave: () => void;
+  onShare: () => void;
+  onAddToClipbook: () => void;
+  onOpenDetail: () => void;
+}) {
+  const theme = getCardTheme(card);
+  const kind = getCardKind(card);
+  const quickTheme = kind === 'game'
+    ? {
+      panel: 'border-cyan-100 bg-[#f3fbff] text-slate-900',
+      tag: 'bg-cyan-100 text-cyan-900',
+      muted: 'text-slate-600',
+      accent: 'text-cyan-700',
+    }
+    : {
+      panel: theme.panel,
+      tag: theme.tag,
+      muted: theme.muted,
+      accent: theme.accent,
+    };
+
+  return (
+    <div className="absolute inset-0 z-40 flex items-end justify-center bg-stone-900/24 px-3 pb-20 backdrop-blur-[2px]">
+      <article className={`w-full max-w-[390px] overflow-hidden rounded-[28px] border p-4 shadow-2xl ${quickTheme.panel}`}>
+        <header className="flex items-start justify-between gap-3">
+          <button type="button" onClick={onOpenDetail} className="min-w-0 flex-1 text-left">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`rounded-full px-3 py-1 text-xs font-medium ${quickTheme.tag}`}>{getCardTypeLabel(card)}</span>
+              <span className={`text-xs ${quickTheme.muted}`}>
+                {formatSeconds(card.segmentStart)} - {formatSeconds(card.segmentEnd)}
+              </span>
+            </div>
+            <h2 className="mt-3 text-lg font-semibold leading-7">{card.title}</h2>
+          </button>
+          <button type="button" onClick={onClose} aria-label="关闭片段卡预览" className="rounded-full bg-white/55 p-1.5 opacity-75 transition hover:opacity-100">
+            <X className="h-5 w-5" strokeWidth={1.9} />
+          </button>
+        </header>
+
+        <button type="button" onClick={onOpenDetail} className="mt-3 block w-full text-left">
+          <p className={`line-clamp-3 text-sm leading-6 ${quickTheme.muted}`}>{card.summary}</p>
+          <p className={`mt-3 text-xs font-medium ${quickTheme.accent}`}>查看完整卡片</p>
+        </button>
+
+        <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
+          <button type="button" onClick={onSave} className="rounded-full bg-stone-900 px-3 py-2 font-medium text-white shadow-sm">
+            保存
+          </button>
+          <button type="button" onClick={onShare} className="rounded-full bg-white/70 px-3 py-2 font-medium shadow-sm">
+            分享
+          </button>
+          <button type="button" onClick={onAddToClipbook} className="rounded-full bg-white/70 px-3 py-2 font-medium shadow-sm">
+            加入手账
+          </button>
+        </div>
+        {feedback ? <p className={`mt-3 text-center text-xs font-medium ${quickTheme.accent}`}>{feedback}</p> : null}
+      </article>
+    </div>
   );
 }
 

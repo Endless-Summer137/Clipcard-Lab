@@ -1,11 +1,28 @@
 import type { SegmentCard } from './types';
 
-const CARD_STORE_KEY = 'clipcard-lab-cards-v1';
+const CARD_STORE_KEY = 'clipcard.cards';
+const LEGACY_CARD_STORE_KEYS = ['clipcard-lab-cards-v1'];
 
 function readCards(): SegmentCard[] {
   try {
     const raw = localStorage.getItem(CARD_STORE_KEY);
-    return raw ? (JSON.parse(raw) as SegmentCard[]) : [];
+    const currentCards = raw ? (JSON.parse(raw) as SegmentCard[]) : [];
+    const mergedCards = [...currentCards];
+
+    for (const legacyKey of LEGACY_CARD_STORE_KEYS) {
+      const legacyRaw = localStorage.getItem(legacyKey);
+      if (legacyRaw) {
+        const legacyCards = JSON.parse(legacyRaw) as SegmentCard[];
+        legacyCards.forEach((legacyCard) => {
+          if (!mergedCards.some((card) => card.cardId === legacyCard.cardId)) {
+            mergedCards.push(legacyCard);
+          }
+        });
+      }
+    }
+
+    if (mergedCards.length !== currentCards.length) writeCards(mergedCards);
+    return mergedCards;
   } catch {
     return [];
   }

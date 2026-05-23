@@ -22,6 +22,7 @@ Page responsibilities are intentionally split:
 - `DemoFeedPage`: user-facing short-video feed demo. It calls the core modules and shows the generated card result, not the internal gates.
 - `ProfilePage`: short-video-style personal homepage with creator-center and card entrances.
 - `UserSubPageShell`: shared light app-page shell for profile subpages such as my cards, clipbook, dresser, and creator center.
+- `CardThumbnail`, `CardQuickPreview`, and `CardDetailView`: shared card presentation components for thumbnail grids, feed quick preview, and full card reading.
 - `CreatorCenter`: phone-width creator subpage with trend summaries, lightweight insights, and a summarized ad-fit status.
 - `InternalLab`: shows budget/ad/card-engine internals for explanation and review.
 - `MyCardsPage`: light themed three-column card library with card detail view.
@@ -51,7 +52,9 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 - Weak-assertion clip card generation based on user-entered title, description, tags, transcript, segment note, and ad candidate.
 - Level 0 / Level 1 / Level 2 card generation differences for waiting-to-complete cards, lightweight moment cards, and standard segment cards.
 - Local `localStorage` card persistence and event logging.
+- Shared card reads through `useClipCards`, with `clipcard.cards` as the unified card storage key and `clipcard.clipbookPlacements` as the unified clipbook placement key.
 - Collectible ClipCard card visuals with themed mini cards, detail view, fixed ad disclosure area, and scrollable card content.
+- A light feed quick-preview card after “保存这一刻”, with actions for save, share, adding to clipbook, and opening the full card detail view.
 - Cover-style card thumbnails that use saved video-frame covers when available and fall back to soft light-card surfaces for low-information clips.
 - A basic card clipbook flow with selectable templates, percentage-based card slots, placed-card removal, placeholder share/publish actions, and disabled duplicate placement in the card picker.
 - Clipbook card selection reads the same `cardStore` source as the my-cards grid, so saved cards can be placed into any template slot.

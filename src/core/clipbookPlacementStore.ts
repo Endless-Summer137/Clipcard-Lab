@@ -4,12 +4,30 @@ export interface ClipbookPlacement {
   cardId: string;
 }
 
-const PLACEMENT_KEY = 'clipcard-lab-clipbook-placements-v1';
+const PLACEMENT_KEY = 'clipcard.clipbookPlacements';
+const LEGACY_PLACEMENT_KEYS = ['clipcard-lab-clipbook-placements-v1'];
 
 function readPlacements(): ClipbookPlacement[] {
   try {
     const raw = localStorage.getItem(PLACEMENT_KEY);
-    return raw ? (JSON.parse(raw) as ClipbookPlacement[]) : [];
+    const currentPlacements = raw ? (JSON.parse(raw) as ClipbookPlacement[]) : [];
+    const mergedPlacements = [...currentPlacements];
+
+    for (const legacyKey of LEGACY_PLACEMENT_KEYS) {
+      const legacyRaw = localStorage.getItem(legacyKey);
+      if (legacyRaw) {
+        const legacyPlacements = JSON.parse(legacyRaw) as ClipbookPlacement[];
+        legacyPlacements.forEach((legacyPlacement) => {
+          const hasSlot = mergedPlacements.some(
+            (placement) => placement.templateId === legacyPlacement.templateId && placement.slotId === legacyPlacement.slotId,
+          );
+          if (!hasSlot) mergedPlacements.push(legacyPlacement);
+        });
+      }
+    }
+
+    if (mergedPlacements.length !== currentPlacements.length) writePlacements(mergedPlacements);
+    return mergedPlacements;
   } catch {
     return [];
   }

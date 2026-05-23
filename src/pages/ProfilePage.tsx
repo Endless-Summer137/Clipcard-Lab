@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import type { SegmentCard } from '../core/types';
 import { getCards } from '../core/cardStore';
-import { CardDetailView, CardMini } from './CardDetailView';
+import { CardDetailView, CardThumbnail } from './CardDetailView';
 import { defaultDemoVideos, readDemoConfig } from './demoData';
 
 type NavigateTarget = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook' | 'dresser';
@@ -190,7 +190,7 @@ function CardCenter({
         <h2 className="text-base font-semibold">最近保存</h2>
         {cards.length > 0 ? (
           <div className="mt-3 grid grid-cols-3 gap-3">
-            {cards.map((card) => <CardMini key={card.cardId} card={card} onClick={() => onOpenCard(card)} />)}
+            {cards.map((card) => <CardThumbnail key={card.cardId} card={card} onClick={() => onOpenCard(card)} />)}
           </div>
         ) : (
           <div className="mt-3 rounded-2xl bg-white px-4 py-6 text-center text-sm leading-6 text-stone-500 shadow-sm shadow-stone-200">

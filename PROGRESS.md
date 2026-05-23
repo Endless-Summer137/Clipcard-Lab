@@ -38,6 +38,9 @@
 - Reworked `CreatorCenter` into a light, phone-width app subpage with a profile return arrow, three-video selector, compact metrics, mobile-sized trend chart, natural-language insights, and a summarized ad-fit section.
 - Added a shared `UserSubPageShell` for `MyCardsPage`, `ClipbookPage`, `DresserPage`, and `CreatorCenter` so user-side subpages now match the light app-page shape of the profile page instead of using large standalone white panels.
 - Fixed clipbook card selection data flow so opening a template slot refreshes cards from `cardStore`, the picker also reads `cardStore` directly, placed cards remain visible but disabled with an `已放置` marker, and the empty state only appears when the shared card store is empty.
+- Unified card access through `useClipCards`, moved card persistence to the shared `clipcard.cards` key with legacy migration, and moved clipbook placements to `clipcard.clipbookPlacements` with legacy migration.
+- Replaced the short-video feed's old dark bottom card popup with a light `CardQuickPreview` that can save, share, add to clipbook, and open the full `CardDetailView`.
+- Standardized card thumbnail rendering through `CardThumbnail` for the my-cards grid, clipbook picker, profile recent cards, and clipbook slot previews.
 
 ## Validation
 
@@ -65,6 +68,8 @@
 - In-app browser verification was not repeated for this final pass because the Browser session was stuck on a previously crashed `data:` page and the Browser tool refused further actions by URL policy.
 - `npm.cmd run build` completed successfully after adding `UserSubPageShell` and repairing the clipbook picker data source.
 - Source validation confirmed `myCards`, `clipbook`, `dresser`, and `creatorCenter` use `UserSubPageShell`; `CardPickerModal` reads `cardStore.getCards()` directly; and slot opening refreshes the parent card list from the same store before selection.
+- `npm.cmd run build` completed successfully after unifying card selection, storage keys, and the feed quick-preview card.
+- Browser verification confirmed the feed bookmark opens the new light quick preview, “查看完整卡片” opens `CardDetailView`, the clipbook slot picker reads the same saved cards visible in `MyCardsPage`, and selecting a card places it into the clicked template slot while placed cards show the disabled `已放置` state.
 
 ## Current Repository Agreement
 
