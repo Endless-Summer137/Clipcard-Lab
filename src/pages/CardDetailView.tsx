@@ -1,7 +1,7 @@
-import { Download, Share2, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
+import { Bookmark, Download, Share2, Trash2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { SegmentCard } from '../core/types';
-import { deleteCard } from '../core/cardStore';
+import { deleteCard, getCardById, updateCard } from '../core/cardStore';
 import { recordEvent } from '../core/eventStore';
 import { removeClipbookPlacementsByCardId } from '../core/clipbookPlacementStore';
 
@@ -14,6 +14,19 @@ export function formatSeconds(seconds: number) {
   const minutes = Math.floor(safeSeconds / 60).toString().padStart(2, '0');
   const remainder = (safeSeconds % 60).toString().padStart(2, '0');
   return `${minutes}:${remainder}`;
+}
+
+function formatCreatedAt(value?: string) {
+  if (!value) return '生成时间未知';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '生成时间未知';
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
 export function getVideoSourceName(card: SegmentCard) {
@@ -158,7 +171,6 @@ export function CardQuickPreview({
   onClose,
   onSave,
   onShare,
-  onAddToClipbook,
   onOpenDetail,
 }: {
   card: SegmentCard;
@@ -166,7 +178,6 @@ export function CardQuickPreview({
   onClose: () => void;
   onSave: () => void;
   onShare: () => void;
-  onAddToClipbook: () => void;
   onOpenDetail: () => void;
 }) {
   const theme = getCardTheme(card);
@@ -205,19 +216,20 @@ export function CardQuickPreview({
 
         <button type="button" onClick={onOpenDetail} className="mt-3 block w-full text-left">
           <p className={`line-clamp-3 text-sm leading-6 ${quickTheme.muted}`}>{card.summary}</p>
-          <p className={`mt-3 text-xs font-medium ${quickTheme.accent}`}>查看完整卡片</p>
         </button>
 
-        <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
-          <button type="button" onClick={onSave} className="rounded-full bg-stone-900 px-3 py-2 font-medium text-white shadow-sm">
-            保存
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <button type="button" onClick={onOpenDetail} className={`rounded-full bg-white/65 px-3.5 py-2 text-xs font-medium shadow-sm ${quickTheme.accent}`}>
+            查看完整卡片
           </button>
-          <button type="button" onClick={onShare} className="rounded-full bg-white/70 px-3 py-2 font-medium shadow-sm">
-            分享
-          </button>
-          <button type="button" onClick={onAddToClipbook} className="rounded-full bg-white/70 px-3 py-2 font-medium shadow-sm">
-            加入手账
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onSave} aria-label="保存到我的卡片" className="grid h-10 w-10 place-items-center rounded-full bg-stone-900 text-white shadow-sm">
+              <Bookmark className="h-5 w-5" strokeWidth={1.9} />
+            </button>
+            <button type="button" onClick={onShare} aria-label="分享卡片" className="grid h-10 w-10 place-items-center rounded-full bg-white/75 shadow-sm">
+              <Share2 className="h-5 w-5" strokeWidth={1.9} />
+            </button>
+          </div>
         </div>
         {feedback ? <p className={`mt-3 text-center text-xs font-medium ${quickTheme.accent}`}>{feedback}</p> : null}
       </article>
@@ -226,21 +238,56 @@ export function CardQuickPreview({
 }
 
 export function CardDetailView({ card, onClose, onDeleted }: { card: SegmentCard; onClose: () => void; onDeleted?: (cardId: string) => void }) {
-  const theme = getCardTheme(card);
-  const adLabel = getAdLabel(card);
+  const [currentCard, setCurrentCard] = useState<SegmentCard>(() => getCardById(card.cardId) ?? card);
+  const theme = getCardTheme(currentCard);
+  const adLabel = getAdLabel(currentCard);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isEditingReflection, setIsEditingReflection] = useState(false);
+  const [reflectionDraft, setReflectionDraft] = useState(currentCard.personalReflection?.text ?? '');
+
+  useEffect(() => {
+    const nextCard = getCardById(card.cardId) ?? card;
+    setCurrentCard(nextCard);
+    setReflectionDraft(nextCard.personalReflection?.text ?? '');
+    setIsEditingReflection(false);
+  }, [card]);
+
+  function openReflectionEditor() {
+    setReflectionDraft(currentCard.personalReflection?.text ?? '');
+    setIsEditingReflection(true);
+  }
+
+  function saveReflection() {
+    const text = reflectionDraft.trim().slice(0, 300);
+    const patch: Partial<SegmentCard> = text
+      ? { personalReflection: { text, updatedAt: new Date().toISOString() } }
+      : { personalReflection: undefined };
+
+    updateCard(currentCard.cardId, patch);
+    const nextCard = getCardById(currentCard.cardId) ?? { ...currentCard, ...patch };
+    setCurrentCard(nextCard);
+    setReflectionDraft(nextCard.personalReflection?.text ?? '');
+    setIsEditingReflection(false);
+  }
+
+  function deleteReflection() {
+    updateCard(currentCard.cardId, { personalReflection: undefined });
+    setCurrentCard({ ...currentCard, personalReflection: undefined });
+    setReflectionDraft('');
+    setIsEditingReflection(false);
+  }
 
   function confirmDeleteCard() {
-    deleteCard(card.cardId);
-    removeClipbookPlacementsByCardId(card.cardId);
+    deleteCard(currentCard.cardId);
+    removeClipbookPlacementsByCardId(currentCard.cardId);
     recordEvent({
       eventType: 'card_deleted',
-      videoId: card.videoId,
-      cardId: card.cardId,
-      segmentStart: card.segmentStart,
-      segmentEnd: card.segmentEnd,
+      videoId: currentCard.videoId,
+      cardId: currentCard.cardId,
+      segmentStart: currentCard.segmentStart,
+      segmentEnd: currentCard.segmentEnd,
     });
-    onDeleted?.(card.cardId);
+    onDeleted?.(currentCard.cardId);
     onClose();
   }
 
@@ -267,28 +314,74 @@ export function CardDetailView({ card, onClose, onDeleted }: { card: SegmentCard
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-24 pt-4">
           <div className="mx-auto max-w-[290px]">
             <div className="flex flex-wrap items-center gap-2">
-              <span className={`rounded-full px-3 py-1 text-xs font-medium ${theme.tag}`}>{getCardTypeLabel(card)}</span>
+              <span className={`rounded-full px-3 py-1 text-xs font-medium ${theme.tag}`}>{getCardTypeLabel(currentCard)}</span>
               <span className={`text-xs ${theme.muted}`}>
-                {formatSeconds(card.segmentStart)} - {formatSeconds(card.segmentEnd)}
+                {formatSeconds(currentCard.segmentStart)} - {formatSeconds(currentCard.segmentEnd)}
               </span>
             </div>
-            <h2 className="mt-5 text-2xl font-semibold leading-8">{card.title}</h2>
+            <h2 className="mt-5 text-2xl font-semibold leading-8">{currentCard.title}</h2>
+            <p className={`mt-2 text-xs ${theme.muted}`}>生成于 {formatCreatedAt(currentCard.createdAt)}</p>
             <section className="mt-6 space-y-5 text-sm leading-7">
               <div>
                 <p className={`text-xs font-medium ${theme.accent}`}>谨慎摘要</p>
-                <p className="mt-1">{card.summary}</p>
+                <p className="mt-1">{currentCard.summary}</p>
               </div>
               <div>
                 <p className={`text-xs font-medium ${theme.accent}`}>保存理由</p>
-                <p className="mt-1">{card.saveReason}</p>
+                <p className="mt-1">{currentCard.saveReason}</p>
               </div>
               <div>
                 <p className={`text-xs font-medium ${theme.accent}`}>来源视频</p>
-                <p className="mt-1">{getVideoSourceName(card)}</p>
+                <p className="mt-1">{getVideoSourceName(currentCard)}</p>
               </div>
               <div>
                 <p className={`text-xs font-medium ${theme.accent}`}>判断依据</p>
-                <p className="mt-1">{card.evidenceNote}</p>
+                <p className="mt-1">{currentCard.evidenceNote}</p>
+              </div>
+              <div>
+                {isEditingReflection ? (
+                  <section className="rounded-3xl bg-white/55 p-3 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className={`text-xs font-medium ${theme.accent}`}>个人感悟</p>
+                      <span className={`text-xs ${theme.muted}`}>{reflectionDraft.length}/300</span>
+                    </div>
+                    <textarea
+                      value={reflectionDraft}
+                      maxLength={300}
+                      onChange={(event) => setReflectionDraft(event.target.value.slice(0, 300))}
+                      placeholder="写下你看到这个片段时的想法，最多 300 字。"
+                      className="mt-2 min-h-[112px] w-full resize-none rounded-2xl border border-white/60 bg-white/70 px-3 py-2 text-sm leading-6 text-stone-800 outline-none placeholder:text-stone-400"
+                    />
+                    <div className="mt-3 flex justify-end gap-2">
+                      <button type="button" onClick={() => setIsEditingReflection(false)} className="rounded-full bg-white/60 px-3 py-1.5 text-xs font-medium">
+                        取消
+                      </button>
+                      <button type="button" onClick={saveReflection} className="rounded-full bg-stone-900 px-3 py-1.5 text-xs font-medium text-white">
+                        保存感悟
+                      </button>
+                    </div>
+                  </section>
+                ) : currentCard.personalReflection?.text ? (
+                  <section className="rounded-3xl bg-white/48 p-3 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className={`text-xs font-medium ${theme.accent}`}>个人感悟</p>
+                      <span className={`text-[11px] ${theme.muted}`}>{formatCreatedAt(currentCard.personalReflection.updatedAt)}</span>
+                    </div>
+                    <p className="mt-2 whitespace-pre-wrap">{currentCard.personalReflection.text}</p>
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={openReflectionEditor} className="rounded-full bg-white/65 px-3 py-1.5 text-xs font-medium shadow-sm">
+                        编辑
+                      </button>
+                      <button type="button" onClick={deleteReflection} className="rounded-full bg-white/45 px-3 py-1.5 text-xs font-medium shadow-sm">
+                        删除
+                      </button>
+                    </div>
+                  </section>
+                ) : (
+                  <button type="button" onClick={openReflectionEditor} className="w-full rounded-3xl bg-white/52 px-4 py-3 text-left text-sm font-medium shadow-sm">
+                    + 个人感悟
+                  </button>
+                )}
               </div>
             </section>
           </div>

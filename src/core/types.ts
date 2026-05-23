@@ -121,6 +121,10 @@ export interface SegmentCard {
   coverImage?: string;
   coverFrame?: number;
   coverSource?: 'current_frame' | 'segment_start_frame' | 'generated_placeholder' | 'future_best_frame';
+  personalReflection?: {
+    text: string;
+    updatedAt: string;
+  };
 }
 
 export type ClipEventType =

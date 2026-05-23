@@ -20,7 +20,8 @@ export interface ClipbookTemplate {
   slots: ClipbookSlot[];
 }
 
-const TEMPLATE_KEY = 'clipcard-lab-clipbook-templates-v1';
+const TEMPLATE_KEY = 'clipcard.clipbookTemplates';
+const LEGACY_TEMPLATE_KEYS = ['clipcard-lab-clipbook-templates-v1'];
 
 export const defaultClipbookTemplates: ClipbookTemplate[] = [
   {
@@ -99,7 +100,37 @@ function slotsMatch(a: ClipbookSlot[] = [], b: ClipbookSlot[] = []) {
 function readStoredTemplates(): ClipbookTemplate[] {
   try {
     const raw = localStorage.getItem(TEMPLATE_KEY);
-    return raw ? (JSON.parse(raw) as ClipbookTemplate[]) : [];
+    const currentTemplates = raw ? (JSON.parse(raw) as ClipbookTemplate[]) : [];
+    const mergedTemplates = [...currentTemplates];
+    let shouldWrite = false;
+
+    for (const legacyKey of LEGACY_TEMPLATE_KEYS) {
+      const legacyRaw = localStorage.getItem(legacyKey);
+      if (!legacyRaw) continue;
+
+      const legacyTemplates = JSON.parse(legacyRaw) as ClipbookTemplate[];
+      legacyTemplates.forEach((legacyTemplate) => {
+        const existingIndex = mergedTemplates.findIndex((template) => template.id === legacyTemplate.id);
+        if (existingIndex >= 0) {
+          mergedTemplates[existingIndex] = {
+            ...legacyTemplate,
+            ...mergedTemplates[existingIndex],
+            image: mergedTemplates[existingIndex].image ?? legacyTemplate.image,
+            imageFileName: mergedTemplates[existingIndex].imageFileName ?? legacyTemplate.imageFileName,
+            imageNaturalWidth: mergedTemplates[existingIndex].imageNaturalWidth ?? legacyTemplate.imageNaturalWidth,
+            imageNaturalHeight: mergedTemplates[existingIndex].imageNaturalHeight ?? legacyTemplate.imageNaturalHeight,
+            aspectRatio: mergedTemplates[existingIndex].aspectRatio ?? legacyTemplate.aspectRatio,
+            orientation: mergedTemplates[existingIndex].orientation ?? legacyTemplate.orientation,
+          };
+        } else {
+          mergedTemplates.push(legacyTemplate);
+        }
+        shouldWrite = true;
+      });
+    }
+
+    if (shouldWrite) writeTemplates(mergedTemplates);
+    return mergedTemplates;
   } catch {
     return [];
   }

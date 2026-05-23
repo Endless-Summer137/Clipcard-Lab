@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { runAdGate } from '../core/adGate';
 import { runBudgetGate } from '../core/budgetGate';
 import { generateSegmentCard } from '../core/cardEngine';
-import { saveCard } from '../core/cardStore';
+import { getCardById, saveCard } from '../core/cardStore';
 import { recordEvent } from '../core/eventStore';
 import type { SegmentCard, SegmentSource, TriggerMode } from '../core/types';
 import { CardDetailView, CardQuickPreview } from './CardDetailView';
@@ -322,9 +322,10 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
     void buildCardFromVideo('short_press');
   }
 
-  function recordCardAction(eventType: 'card_saved' | 'card_shared' | 'card_added_to_clipbook') {
+  function recordCardAction(eventType: 'card_saved' | 'card_shared') {
     if (!activeCard) return;
-    if (eventType === 'card_saved') saveCard(activeCard);
+    const alreadySaved = eventType === 'card_saved' && Boolean(getCardById(activeCard.cardId));
+    if (eventType === 'card_saved' && !alreadySaved) saveCard(activeCard);
     recordEvent({
       eventType,
       videoId: activeCard.videoId,
@@ -333,9 +334,8 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
       segmentEnd: activeCard.segmentEnd,
     });
 
-    if (eventType === 'card_saved') setCardFeedback('已保存到我的卡片');
+    if (eventType === 'card_saved') setCardFeedback(alreadySaved ? '已保存' : '已保存到我的卡片');
     if (eventType === 'card_shared') setCardFeedback('已生成分享卡片');
-    if (eventType === 'card_added_to_clipbook') setCardFeedback('已记录加入手账，稍后可去卡片手账排版');
   }
 
   function onWheel(event: WheelEvent<HTMLElement>) {
@@ -440,7 +440,6 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
           onClose={() => setActiveCard(null)}
           onSave={() => recordCardAction('card_saved')}
           onShare={() => recordCardAction('card_shared')}
-          onAddToClipbook={() => recordCardAction('card_added_to_clipbook')}
           onOpenDetail={() => setDetailCard(activeCard)}
         />
       ) : null}

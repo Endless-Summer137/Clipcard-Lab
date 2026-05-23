@@ -15,8 +15,15 @@ function getFallbackVideoTitle(videoId: string) {
 function normalizeCard(card: SegmentCard): SegmentCard {
   return {
     ...card,
+    createdAt: card.createdAt ?? new Date().toISOString(),
     segmentSource: card.segmentSource ?? 'default_demo_segment',
     sourceVideoTitle: card.sourceVideoTitle ?? getFallbackVideoTitle(card.videoId),
+    personalReflection: card.personalReflection?.text?.trim()
+      ? {
+        text: card.personalReflection.text.slice(0, 300),
+        updatedAt: card.personalReflection.updatedAt ?? new Date().toISOString(),
+      }
+      : undefined,
   };
 }
 

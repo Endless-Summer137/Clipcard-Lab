@@ -104,10 +104,10 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
   async function onTemplateImageUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
+    const targetTemplateId = selectedTemplateId;
     const imageMeta = await readTemplateImage(file);
-    const next = { ...selectedTemplate, ...imageMeta };
-    updateClipbookTemplate(selectedTemplateId, imageMeta);
-    refreshTemplate(next);
+    updateClipbookTemplate(targetTemplateId, imageMeta);
+    setTemplates(getClipbookTemplates());
     event.target.value = '';
   }
 
@@ -170,7 +170,7 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
             <input type="file" accept="image/png,image/jpeg,image/webp" onChange={onTemplateImageUpload} className="mt-2 block w-full text-sm" />
           </label>
           <p className="mt-2 text-xs text-stone-500">
-            {selectedTemplate.imageFileName ? `当前模板图：${selectedTemplate.imageFileName}` : `${selectedTemplate.name} 暂未上传模板图，正在使用内置占位背景。`}
+            {selectedTemplate.image ? `已上传：${selectedTemplate.imageFileName ?? '自定义模板图'}` : `${selectedTemplate.name} 暂未上传模板图，正在使用内置占位背景。`}
           </p>
           <div className="mt-4 grid gap-3">
             {selectedTemplate.slots.map((slot) => (
@@ -211,7 +211,7 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
           当前手账：{selectedTemplate.type === 'blank' ? bookTitle : selectedTemplate.name}
         </p>
         <p className="mt-1 text-xs text-stone-500">
-          {selectedTemplate.imageFileName ? `模板图：${selectedTemplate.imageFileName}` : `${selectedTemplate.name} 待上传 / 使用内置占位背景`}
+          {selectedTemplate.image ? `已上传：${selectedTemplate.imageFileName ?? '自定义模板图'}` : `${selectedTemplate.name} 待上传 / 使用内置占位背景`}
         </p>
         <TemplateCanvas
           key={selectedTemplateId}

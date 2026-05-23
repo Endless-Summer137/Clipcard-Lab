@@ -52,6 +52,9 @@
 - Fixed clipbook template binding so the current preview, uploaded image metadata, filename display, slot list, placement writes, and dev `x/y/w/h` controls all follow `selectedTemplateId`.
 - Added a small migration for legacy FPS / blank-book default slots so older local template records do not keep overriding the current default slot geometry.
 - Hardened `CardThumbnail` rendering in the clipbook picker with full-width visible sizing and DOM markers, preventing the “cardStore has cards but the picker looks empty” failure mode.
+- Moved clipbook template persistence to `clipcard.clipbookTemplates` with legacy migration, and made template image upload refresh the selected template from the store immediately after saving.
+- Simplified the feed `CardQuickPreview` actions so it keeps a full-card entry while save/share are compact icon buttons and the quick “加入手账” text action is removed.
+- Added card detail generation time display and one editable/deletable `personalReflection` field per card, persisted through `cardStore`.
 
 ## Validation
 
@@ -87,6 +90,8 @@
 - Browser verification confirmed the hidden config shows `defaultSegmentStart` / `defaultSegmentEnd` plus fallback explanation, the feed still generates the light quick preview, `MyCardsPage` and the clipbook picker both displayed 7 cards from the shared store, and selecting a card placed it into the clicked clipbook slot.
 - `npm.cmd run build` completed successfully after the clipbook template-binding and picker-visibility repair.
 - Browser verification on `?page=clipbook&dev=1` confirmed switching to `风景模板` updates the current preview title, filename fallback copy, four landscape slots, and dev slot inputs; switching to `空白书模板` shows the blank-book title and blank slots. Opening a landscape slot showed debug `cardStore` count 7 and rendered 7 visible picker thumbnails; selecting a card placed it into the clicked slot, and reopening another slot showed the placed card disabled with an `已放置` marker.
+- `npm.cmd run build` completed successfully after the template-upload state, quick-preview action, and card-reflection update.
+- Browser verification confirmed `风景模板` remains bound to the selected preview/slots instead of the FPS preview, the quick preview no longer renders the “加入手账” action and uses save/share icon buttons, `CardDetailView` shows real creation time, and personal reflection can be added, edited, deleted, restored to the add-entry state, and seen again after reloading `?page=cards`.
 
 ## Current Repository Agreement
 
