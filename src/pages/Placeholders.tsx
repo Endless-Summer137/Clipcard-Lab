@@ -2,13 +2,14 @@ import { X } from 'lucide-react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import { useEffect, useState } from 'react';
 import type { SegmentCard } from '../core/types';
+import type { Clipbook, ClipbookSlotPlacement } from '../core/clipbookStore';
+import {
+  createClipbook,
+  getClipbooks,
+  updateClipbook,
+} from '../core/clipbookStore';
 import type { ClipbookSlot, ClipbookTemplate } from '../core/clipbookTemplateStore';
 import { getTemplates, updateClipbookSlot, updateTemplate } from '../core/clipbookTemplateStore';
-import {
-  getClipbookPlacements,
-  removeClipbookPlacement,
-  setClipbookPlacement,
-} from '../core/clipbookPlacementStore';
 import { useClipCards } from '../hooks/useClipCards';
 import { CardDetailView, CardThumbnail } from './CardDetailView';
 import { UserSubPageShell } from './UserSubPageShell';
@@ -57,50 +58,103 @@ export function MyCardsPage({ onNavigate }: SimplePageProps) {
 export function ClipbookPage({ onNavigate, devMode = false, templateId }: ClipbookPageProps) {
   const { cards, refreshCards } = useClipCards();
   const [templates, setTemplates] = useState<ClipbookTemplate[]>(() => getTemplates());
+  const [clipbooks, setClipbooks] = useState<Clipbook[]>(() => getClipbooks());
   const [selectedTemplateId, setSelectedTemplateId] = useState<TemplateId>(templateId ?? 'fps');
-  const [placements, setPlacements] = useState(() => getClipbookPlacements(templateId ?? 'fps'));
+  const [mode, setMode] = useState<'home' | 'edit' | 'detail'>(() => (templateId || devMode ? 'edit' : 'home'));
+  const [editingClipbookId, setEditingClipbookId] = useState<string | null>(null);
+  const [viewingClipbookId, setViewingClipbookId] = useState<string | null>(null);
+  const [draftSlots, setDraftSlots] = useState<ClipbookSlotPlacement[]>(() => buildDraftSlots(getTemplates().find((item) => getTemplateId(item) === (templateId ?? 'fps')) ?? getTemplates()[0]));
   const [selectingSlotId, setSelectingSlotId] = useState<string | null>(null);
-  const [bookTitle, setBookTitle] = useState('我的空白书');
+  const [bookTitle, setBookTitle] = useState(getDefaultClipbookTitle(templateId ?? 'fps'));
   const [feedback, setFeedback] = useState('');
+  const [homeFeedback, setHomeFeedback] = useState('');
   const [templateFeedback, setTemplateFeedback] = useState('');
   const [templateError, setTemplateError] = useState('');
 
   const selectedTemplate = templates.find((item) => getTemplateId(item) === selectedTemplateId) ?? templates[0];
-  const placedCardIds = new Set(placements.map((item) => item.cardId));
-  const isTemplateSelectionOnly = !templateId && !devMode;
+  const viewingClipbook = viewingClipbookId ? clipbooks.find((clipbook) => clipbook.clipbookId === viewingClipbookId) ?? null : null;
+  const placedCardIds = new Set(draftSlots.map((slot) => slot.cardId).filter(Boolean) as string[]);
 
   useEffect(() => {
-    if (!templateId || templateId === selectedTemplateId) return;
-    setSelectedTemplateId(templateId);
-    setPlacements(getClipbookPlacements(templateId));
-    setSelectingSlotId(null);
-    setFeedback('');
-    setTemplateFeedback('');
-    setTemplateError('');
-  }, [selectedTemplateId, templateId]);
+    if (templateId) {
+      startNewClipbook(templateId);
+      return;
+    }
+
+    if (!devMode) {
+      setMode('home');
+      setEditingClipbookId(null);
+      setViewingClipbookId(null);
+      setSelectingSlotId(null);
+    }
+  }, [devMode, templateId]);
 
   function selectTemplate(templateId: string) {
-    setSelectedTemplateId(normalizeTemplateId(templateId));
-    setPlacements(getClipbookPlacements(templateId));
+    const nextTemplateId = normalizeTemplateId(templateId);
+    const nextTemplate = templates.find((item) => getTemplateId(item) === nextTemplateId) ?? selectedTemplate;
+    setSelectedTemplateId(nextTemplateId);
+    setDraftSlots(buildDraftSlots(nextTemplate));
+    setBookTitle(getDefaultClipbookTitle(nextTemplateId));
+    setEditingClipbookId(null);
+    setViewingClipbookId(null);
+    setMode('edit');
     setSelectingSlotId(null);
     setFeedback('');
+    setHomeFeedback('');
     setTemplateFeedback('');
     setTemplateError('');
     refreshCards();
   }
 
+  function startNewClipbook(templateId: string) {
+    selectTemplate(templateId);
+  }
+
+  function openClipbookDetail(clipbook: Clipbook) {
+    setViewingClipbookId(clipbook.clipbookId);
+    setMode('detail');
+    setHomeFeedback('');
+    refreshCards();
+  }
+
+  function editClipbook(clipbook: Clipbook) {
+    const nextTemplateId = normalizeTemplateId(clipbook.templateId);
+    const nextTemplate = templates.find((item) => getTemplateId(item) === nextTemplateId) ?? selectedTemplate;
+    setSelectedTemplateId(nextTemplateId);
+    setDraftSlots(buildDraftSlots(nextTemplate, clipbook));
+    setBookTitle(clipbook.title || getDefaultClipbookTitle(nextTemplateId));
+    setEditingClipbookId(clipbook.clipbookId);
+    setViewingClipbookId(null);
+    setMode('edit');
+    setSelectingSlotId(null);
+    setFeedback('');
+    refreshCards();
+  }
+
+  function returnToHome(message?: string) {
+    setClipbooks(getClipbooks());
+    setMode('home');
+    setEditingClipbookId(null);
+    setViewingClipbookId(null);
+    setSelectingSlotId(null);
+    setFeedback('');
+    setHomeFeedback(message ?? '');
+  }
+
   function placeCard(card: SegmentCard) {
     if (!selectingSlotId || placedCardIds.has(card.cardId)) return;
-    setClipbookPlacement({ templateId: selectedTemplateId, slotId: selectingSlotId, cardId: card.cardId });
-    setPlacements(getClipbookPlacements(selectedTemplateId));
+    setDraftSlots((current) => current.map((slot) => (
+      slot.slotId === selectingSlotId ? { ...slot, cardId: card.cardId } : slot
+    )));
     refreshCards();
     setSelectingSlotId(null);
     setFeedback('已放入槽位。');
   }
 
   function clearSlot(slotId: string) {
-    removeClipbookPlacement(selectedTemplateId, slotId);
-    setPlacements(getClipbookPlacements(selectedTemplateId));
+    setDraftSlots((current) => current.map((slot) => (
+      slot.slotId === slotId ? { ...slot, cardId: null } : slot
+    )));
     refreshCards();
   }
 
@@ -110,8 +164,33 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
   }
 
   function getCardInSlot(slotId: string) {
-    const placement = placements.find((item) => item.slotId === slotId);
-    return placement ? cards.find((card) => card.cardId === placement.cardId) ?? null : null;
+    const placement = draftSlots.find((item) => item.slotId === slotId);
+    return placement?.cardId ? cards.find((card) => card.cardId === placement.cardId) ?? null : null;
+  }
+
+  function getClipbookCardInSlot(clipbook: Clipbook, slotId: string) {
+    const placement = clipbook.slots.find((item) => item.slotId === slotId);
+    return placement?.cardId ? cards.find((card) => card.cardId === placement.cardId) ?? null : null;
+  }
+
+  function saveCurrentClipbook() {
+    const title = bookTitle.trim() || getDefaultClipbookTitle(selectedTemplateId);
+    const payload = {
+      title,
+      templateId: selectedTemplateId,
+      templateName: getTemplateDisplayName(selectedTemplate),
+      coverImage: getClipbookCoverImage(selectedTemplate, draftSlots, cards),
+      slots: draftSlots,
+    };
+
+    const savedClipbook = editingClipbookId
+      ? updateClipbook(editingClipbookId, payload)
+      : createClipbook(payload);
+
+    setClipbooks(getClipbooks());
+    setBookTitle(savedClipbook?.title ?? title);
+    if (templateId) onNavigate('clipbook', { dev: devMode });
+    returnToHome('手账已保存');
   }
 
   async function onTemplateImageUpload(event: ChangeEvent<HTMLInputElement>) {
@@ -159,37 +238,97 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
     setTemplates(getTemplates());
   }
 
+  if (mode === 'home') {
+    return (
+      <UserSubPageShell
+        title="卡片手账"
+        subtitle="把保存的片段卡整理成可分享的手账"
+        onBack={() => onNavigate('profile', { dev: false })}
+      >
+        <ClipbookHome
+          clipbooks={clipbooks}
+          templates={templates}
+          cards={cards}
+          feedback={homeFeedback}
+          onOpenClipbook={openClipbookDetail}
+          onCreateDefault={() => startNewClipbook('fps')}
+          onSelectTemplate={(id) => startNewClipbook(id)}
+        />
+      </UserSubPageShell>
+    );
+  }
+
+  if (mode === 'detail' && viewingClipbook) {
+    const detailTemplate = templates.find((item) => getTemplateId(item) === normalizeTemplateId(viewingClipbook.templateId)) ?? selectedTemplate;
+
+    return (
+      <UserSubPageShell
+        title={viewingClipbook.title}
+        subtitle={viewingClipbook.templateName}
+        onBack={() => returnToHome()}
+      >
+        <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
+          <p className="text-xs font-medium text-stone-500">手账预览</p>
+          <TemplateCanvas
+            template={detailTemplate}
+            cards={cards}
+            getCardInSlot={(slotId) => getClipbookCardInSlot(viewingClipbook, slotId)}
+            onSlotClick={() => undefined}
+            onClearSlot={() => undefined}
+            onImageMeasure={() => undefined}
+            readOnly
+            emptyMessage="这本手账还没有放入卡片。"
+          />
+        </section>
+
+        <section className="grid gap-3">
+          <button type="button" onClick={() => setFeedback('已生成图片，后续可接入系统相册保存。')} className="rounded-full bg-stone-900 px-4 py-2.5 text-sm font-medium text-white">
+            保存到相册
+          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button type="button" onClick={() => setFeedback('分享手账功能已预留。')} className="rounded-full bg-white px-4 py-2.5 text-sm font-medium text-stone-800 shadow-sm shadow-stone-200">
+              分享
+            </button>
+            <button type="button" onClick={() => setFeedback('一键发布为视频功能已预留。')} className="rounded-full bg-emerald-100 px-4 py-2.5 text-sm font-medium text-emerald-800">
+              一键发布为视频
+            </button>
+          </div>
+          <button type="button" onClick={() => editClipbook(viewingClipbook)} className="rounded-full bg-stone-100 px-4 py-2.5 text-sm font-medium text-stone-800">
+            继续编辑
+          </button>
+          {feedback ? <p className="text-center text-sm text-emerald-700">{feedback}</p> : null}
+        </section>
+      </UserSubPageShell>
+    );
+  }
+
   return (
     <UserSubPageShell
-      title={isTemplateSelectionOnly ? '模板库' : selectedTemplate.name}
-      subtitle={isTemplateSelectionOnly ? '选择适合你的手账风格。' : '点击槽位，把保存过的片段卡放进当前模板。'}
-      onBack={() => onNavigate('profile', { dev: false })}
+      title={editingClipbookId ? '编辑手账' : '新建手账'}
+      subtitle="点击槽位，把保存过的片段卡放进当前模板。"
+      onBack={() => returnToHome()}
     >
-      {isTemplateSelectionOnly ? (
-        <TemplateSelectionPanel templates={templates} onSelect={(id) => onNavigate('clipbook', { dev: false, template: id })} />
-      ) : (
-        <>
-          {devMode ? (
-            <section className="grid gap-2.5">
-              {templates.map((template) => (
-                <button
-                  key={getTemplateId(template)}
-                  type="button"
-                  onClick={() => selectTemplate(getTemplateId(template))}
-                  className={[
-                    'rounded-2xl border px-3 py-3 text-left shadow-sm transition',
-                    selectedTemplateId === getTemplateId(template) ? 'border-emerald-300 bg-white shadow-emerald-100' : 'border-white/70 bg-white/70 shadow-stone-200',
-                  ].join(' ')}
-                >
-                  <h2 className="font-semibold">{template.name}</h2>
-                  <p className="mt-1 text-sm leading-6 text-stone-500">{getTemplateDescription(template)}</p>
-                </button>
-              ))}
-            </section>
-          ) : null}
+      {devMode ? (
+        <section className="grid gap-2.5">
+          {templates.map((template) => (
+            <button
+              key={getTemplateId(template)}
+              type="button"
+              onClick={() => selectTemplate(getTemplateId(template))}
+              className={[
+                'rounded-2xl border px-3 py-3 text-left shadow-sm transition',
+                selectedTemplateId === getTemplateId(template) ? 'border-emerald-300 bg-white shadow-emerald-100' : 'border-white/70 bg-white/70 shadow-stone-200',
+              ].join(' ')}
+            >
+              <h2 className="font-semibold">{template.name}</h2>
+              <p className="mt-1 text-sm leading-6 text-stone-500">{getTemplateDescription(template)}</p>
+            </button>
+          ))}
+        </section>
+      ) : null}
 
-          {devMode ? (
-            <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
+      {devMode ? (
+        <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
           <h2 className="font-semibold">模板配置</h2>
           <label className="mt-3 block text-sm text-stone-600">
             上传模板图
@@ -220,24 +359,25 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
               </div>
             ))}
           </div>
-            </section>
-          ) : null}
+        </section>
+      ) : null}
 
-          <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
+      <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-semibold">当前手账</h2>
-          {selectedTemplate.type === 'blank' ? (
-            <input
-              value={bookTitle}
-              onChange={(event) => setBookTitle(event.target.value)}
-              className="w-32 rounded-full bg-stone-100 px-3 py-1.5 text-sm outline-none"
-              aria-label="书名"
-            />
-          ) : null}
+          <h2 className="font-semibold">{selectedTemplate.name}</h2>
+          <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs text-stone-500">
+            {getTemplateDisplayName(selectedTemplate)}
+          </span>
         </div>
-        <p className="mt-2 text-sm font-medium text-stone-700">
-          当前手账：{selectedTemplate.type === 'blank' ? bookTitle : selectedTemplate.name}
-        </p>
+        <label className="mt-4 block text-sm font-medium text-stone-700">
+          手账标题
+          <input
+            value={bookTitle}
+            onChange={(event) => setBookTitle(event.target.value)}
+            className="mt-2 w-full rounded-2xl bg-stone-100 px-3 py-2 text-sm outline-none"
+            aria-label="手账标题"
+          />
+        </label>
         <p className="mt-1 text-xs text-stone-500">
           {getTemplateBackgroundImage(selectedTemplate) ? `已上传：${selectedTemplate.imageFileName ?? '自定义模板图'}` : `${selectedTemplate.name} 待上传 / 使用内置占位背景`}
         </p>
@@ -250,18 +390,21 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
           onClearSlot={clearSlot}
           onImageMeasure={updateTemplateImageSize}
         />
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <button type="button" onClick={() => setFeedback('分享手账功能已预留。')} className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white">
-            分享手账
+        <div className="mt-4 grid gap-3">
+          <button type="button" onClick={saveCurrentClipbook} className="rounded-full bg-stone-900 px-4 py-2.5 text-sm font-medium text-white">
+            保存手账
           </button>
-          <button type="button" onClick={() => setFeedback('一键发布为视频功能已预留。')} className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-800">
-            一键发布为视频
-          </button>
+          <div className="grid grid-cols-2 gap-3">
+            <button type="button" onClick={() => setFeedback('分享手账功能已预留。')} className="rounded-full bg-white px-4 py-2.5 text-sm font-medium text-stone-800 shadow-sm shadow-stone-200">
+              分享手账
+            </button>
+            <button type="button" onClick={() => setFeedback('一键发布为视频功能已预留。')} className="rounded-full bg-emerald-100 px-4 py-2.5 text-sm font-medium text-emerald-800">
+              一键发布为视频
+            </button>
+          </div>
         </div>
         {feedback ? <p className="mt-3 text-sm text-emerald-700">{feedback}</p> : null}
-          </section>
-        </>
-      )}
+      </section>
 
       {selectingSlotId ? (
         <CardPickerModal
@@ -274,6 +417,106 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
         />
       ) : null}
     </UserSubPageShell>
+  );
+}
+
+function ClipbookHome({
+  clipbooks,
+  templates,
+  cards,
+  feedback,
+  onOpenClipbook,
+  onCreateDefault,
+  onSelectTemplate,
+}: {
+  clipbooks: Clipbook[];
+  templates: ClipbookTemplate[];
+  cards: SegmentCard[];
+  feedback: string;
+  onOpenClipbook: (clipbook: Clipbook) => void;
+  onCreateDefault: () => void;
+  onSelectTemplate: (templateId: TemplateId) => void;
+}) {
+  return (
+    <>
+      <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-semibold">我的手账</h2>
+          <span className="rounded-full bg-stone-100 px-2.5 py-1 text-xs text-stone-500">{clipbooks.length} 本</span>
+        </div>
+        {feedback ? <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{feedback}</p> : null}
+        {clipbooks.length > 0 ? (
+          <div className="mt-4 grid gap-3">
+            {clipbooks.map((clipbook) => {
+              const template = templates.find((item) => getTemplateId(item) === normalizeTemplateId(clipbook.templateId)) ?? templates[0];
+              return (
+                <ClipbookListCard
+                  key={clipbook.clipbookId}
+                  clipbook={clipbook}
+                  template={template}
+                  cardCount={getClipbookCardCount(clipbook, cards)}
+                  onClick={() => onOpenClipbook(clipbook)}
+                />
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-4 rounded-3xl bg-[#f3f0e7] px-5 py-8 text-center text-sm leading-6 text-stone-500">
+            还没有手账。选择一个模板，把保存的片段卡整理成你的第一本手账。
+          </p>
+        )}
+      </section>
+
+      <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">新建手账</h2>
+            <p className="mt-1 text-sm text-stone-500">先选模板，再把卡片放进槽位。</p>
+          </div>
+          <button type="button" onClick={onCreateDefault} className="rounded-full bg-stone-900 px-3.5 py-2 text-sm font-medium text-white">
+            新建手账
+          </button>
+        </div>
+        <div className="mt-4">
+          <p className="mb-3 text-xs font-medium text-stone-500">模板库预览</p>
+          <TemplateSelectionPanel templates={templates} onSelect={onSelectTemplate} />
+        </div>
+      </section>
+    </>
+  );
+}
+
+function ClipbookListCard({
+  clipbook,
+  template,
+  cardCount,
+  onClick,
+}: {
+  clipbook: Clipbook;
+  template: ClipbookTemplate;
+  cardCount: number;
+  onClick: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick} className="grid grid-cols-[96px_1fr] gap-3 rounded-3xl bg-[#fbf8f0] p-3 text-left shadow-sm shadow-stone-200">
+      <span className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-stone-100">
+        {clipbook.coverImage ? (
+          <img src={clipbook.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <TemplateChoiceBackground templateId={getTemplateId(template)} />
+        )}
+        <span className="absolute inset-0 bg-gradient-to-t from-stone-950/50 via-transparent to-white/10" />
+        <span className="absolute bottom-2 left-2 right-2 text-xs font-semibold leading-4 text-white drop-shadow">
+          {clipbook.templateName}
+        </span>
+      </span>
+      <span className="min-w-0 py-1">
+        <span className="block line-clamp-2 text-base font-semibold leading-6 text-stone-900">{clipbook.title}</span>
+        <span className="mt-2 block text-sm text-stone-500">{clipbook.templateName}</span>
+        <span className="mt-2 block text-sm text-stone-500">包含 {cardCount} 张卡片</span>
+        <span className="mt-3 block text-xs text-stone-400">更新于 {formatTimestamp(clipbook.updatedAt || clipbook.createdAt)}</span>
+      </span>
+    </button>
   );
 }
 
@@ -352,6 +595,8 @@ function TemplateCanvas({
   onSlotClick,
   onClearSlot,
   onImageMeasure,
+  readOnly = false,
+  emptyMessage = '先在视频里保存一张卡片，再放入槽位。',
 }: {
   template: ClipbookTemplate;
   cards: SegmentCard[];
@@ -359,9 +604,12 @@ function TemplateCanvas({
   onSlotClick: (slotId: string) => void;
   onClearSlot: (slotId: string) => void;
   onImageMeasure: (width: number, height: number) => void;
+  readOnly?: boolean;
+  emptyMessage?: string;
 }) {
   const canvasRatio = getTemplateAspectRatio(template);
   const backgroundImage = getTemplateBackgroundImage(template);
+  const hasPlacedCards = template.slots.some((slot) => Boolean(getCardInSlot(getSlotId(slot))));
 
   return (
     <div className="mt-4 overflow-x-auto rounded-[24px] border border-stone-100 bg-[#f8f4e9] p-2 shadow-inner">
@@ -382,27 +630,33 @@ function TemplateCanvas({
           return (
             <div
               key={getSlotId(slot)}
-              onClick={() => onSlotClick(getSlotId(slot))}
+              onClick={() => { if (!readOnly) onSlotClick(getSlotId(slot)); }}
               onKeyDown={(event) => {
+                if (readOnly) return;
                 if (event.key === 'Enter' || event.key === ' ') {
                   event.preventDefault();
                   onSlotClick(getSlotId(slot));
                 }
               }}
-              role="button"
-              tabIndex={0}
-              className="group absolute rounded-2xl border-2 border-dashed border-white/85 bg-white/24 p-1 shadow-sm backdrop-blur-[1px] transition hover:border-emerald-300 hover:bg-emerald-50/55 active:border-emerald-300 active:bg-emerald-50/55"
+              role={readOnly ? undefined : 'button'}
+              tabIndex={readOnly ? undefined : 0}
+              className={[
+                'group absolute rounded-2xl border-2 border-dashed border-white/85 bg-white/24 p-1 shadow-sm backdrop-blur-[1px]',
+                readOnly ? '' : 'transition hover:border-emerald-300 hover:bg-emerald-50/55 active:border-emerald-300 active:bg-emerald-50/55',
+              ].join(' ')}
               style={{ left: `${slot.x}%`, top: `${slot.y}%`, width: `${slot.w}%`, height: `${slot.h}%` }}
             >
               {card ? (
-                <SlotCard card={card} onClear={(event) => { event.stopPropagation(); onClearSlot(getSlotId(slot)); }} />
+                <SlotCard card={card} onClear={readOnly ? undefined : (event) => { event.stopPropagation(); onClearSlot(getSlotId(slot)); }} />
               ) : (
-                <span className="flex h-full items-center justify-center text-2xl font-light text-white drop-shadow group-hover:text-emerald-700 group-active:text-emerald-700">+</span>
+                <span className="flex h-full items-center justify-center text-2xl font-light text-white drop-shadow group-hover:text-emerald-700 group-active:text-emerald-700">
+                  {readOnly ? '' : '+'}
+                </span>
               )}
             </div>
           );
         })}
-        {cards.length === 0 ? <p className="absolute inset-x-6 bottom-6 rounded-2xl bg-white/80 px-4 py-3 text-center text-xs text-stone-500">先在视频里保存一张卡片，再放入槽位。</p> : null}
+        {!hasPlacedCards && (cards.length === 0 || readOnly) ? <p className="absolute inset-x-6 bottom-6 rounded-2xl bg-white/80 px-4 py-3 text-center text-xs text-stone-500">{emptyMessage}</p> : null}
       </div>
     </div>
   );
@@ -425,13 +679,15 @@ function BuiltInTemplateBackground({ template }: { template: ClipbookTemplate })
   return <div className="absolute inset-0 border-l-[18px] border-stone-200 bg-[#fffaf0]" />;
 }
 
-function SlotCard({ card, onClear }: { card: SegmentCard; onClear: (event: MouseEvent<HTMLButtonElement>) => void }) {
+function SlotCard({ card, onClear }: { card: SegmentCard; onClear?: (event: MouseEvent<HTMLButtonElement>) => void }) {
   return (
     <div className="relative h-full">
       <CardThumbnail card={card} className="h-full w-full rounded-xl" />
-      <button type="button" onClick={onClear} aria-label="移除卡片" className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-black/50 text-xs text-white">
-        ×
-      </button>
+      {onClear ? (
+        <button type="button" onClick={onClear} aria-label="移除卡片" className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-black/50 text-xs text-white">
+          ×
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -535,6 +791,46 @@ function getTemplateDisplayName(template: ClipbookTemplate) {
   if (id === 'fps') return 'FPS 高光册';
   if (id === 'landscape') return '风景灵感册';
   return '空白书';
+}
+
+function getDefaultClipbookTitle(templateId: string) {
+  const id = normalizeTemplateId(templateId);
+  if (id === 'fps') return '我的 FPS 高光册';
+  if (id === 'landscape') return '我的风景灵感册';
+  return '我的空白书';
+}
+
+function buildDraftSlots(template: ClipbookTemplate, clipbook?: Clipbook): ClipbookSlotPlacement[] {
+  return template.slots.map((slot) => {
+    const slotId = getSlotId(slot);
+    const savedSlot = clipbook?.slots.find((item) => item.slotId === slotId);
+    return {
+      slotId,
+      cardId: savedSlot?.cardId ?? null,
+    };
+  });
+}
+
+function getClipbookCoverImage(template: ClipbookTemplate, slots: ClipbookSlotPlacement[], cards: SegmentCard[]) {
+  const firstCardId = slots.find((slot) => slot.cardId)?.cardId;
+  const firstCard = firstCardId ? cards.find((card) => card.cardId === firstCardId) : undefined;
+  return firstCard?.coverImage ?? getTemplateBackgroundImage(template);
+}
+
+function getClipbookCardCount(clipbook: Clipbook, cards: SegmentCard[]) {
+  return clipbook.slots.filter((slot) => slot.cardId && cards.some((card) => card.cardId === slot.cardId)).length;
+}
+
+function formatTimestamp(value: number) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '时间未知';
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day} ${hours}:${minutes}`;
 }
 
 function getTemplateAspectRatio(template: ClipbookTemplate) {

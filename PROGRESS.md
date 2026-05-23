@@ -58,6 +58,10 @@
 - Added card detail generation time display and one editable/deletable `personalReflection` field per card, persisted through `cardStore`.
 - Reworked the user-facing template library as horizontal 9:16 template cards that read `clipbookTemplateStore`, then navigate directly to `?page=clipbook&template=fps|landscape|blank`.
 - Split the ordinary clipbook flow into a template-library state and a direct template-editor state, while keeping upload and slot-coordinate controls restricted to `dev=1`.
+- Added `clipbookStore` under `clipcard_clipbooks` for saved 手账 instances, including title, template metadata, slot-to-card references, created/updated timestamps, and card-reference cleanup when a saved card is deleted.
+- Reworked `ClipbookPage` so `?page=clipbook` opens a `卡片手账` home page with `我的手账` and `新建手账 / 模板库` sections instead of replacing the page with a large template library.
+- Changed template editing into a draft flow: selecting a template starts a new 手账, cards placed in slots remain draft-only, and the new `保存手账` primary action creates or updates a saved 手账 before returning to the home page.
+- Added a saved 手账 detail view with template preview, placed-card slots, `保存到相册`, `分享`, `一键发布为视频`, and `继续编辑`; continuing edit reloads the existing slot card ids and saving updates the same 手账.
 
 ## Validation
 
@@ -99,6 +103,8 @@
 - Browser verification on `?page=clipbook&dev=1` confirmed the FPS editor and current preview now read the same slot data from the shared template store, with the preview slot styles matching the dev `x/y/w/h` values and no console errors.
 - `npm.cmd run build` completed successfully after the template-library and clipbook-template route update.
 - Browser verification confirmed the profile `卡片` Tab shows three horizontal 9:16 template cards, clicking `FPS 高光册` navigates to `?page=clipbook&template=fps`, direct landscape and blank routes open the matching editor, ordinary user pages show no template upload/config/coordinate controls, and `?page=clipbook&dev=1` still exposes the dev template configuration.
+- `npm.cmd run build` completed successfully after the saved 手账 information architecture and save-flow update.
+- Browser verification for this pass was blocked by the Browser URL policy: the plugin rejected both the temporary localhost preview and the local `file://` preview. Static source review confirmed the default clipbook route now renders the home page, template selection enters draft editing, `保存手账` writes `clipcard_clipbooks`, saved entries open detail, and detail `继续编辑` updates the existing 手账.
 
 ## Current Repository Agreement
 

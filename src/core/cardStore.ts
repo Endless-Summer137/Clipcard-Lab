@@ -1,4 +1,5 @@
 import type { SegmentCard } from './types';
+import { removeCardFromClipbooks } from './clipbookStore';
 
 const CARD_STORE_KEY = 'clipcard.cards';
 const LEGACY_CARD_STORE_KEYS = ['clipcard-lab-cards-v1'];
@@ -83,6 +84,7 @@ export function updateCard(cardId: string, patch: Partial<SegmentCard>) {
 
 export function deleteCard(cardId: string) {
   writeCards(readCards().filter((card) => card.cardId !== cardId));
+  removeCardFromClipbooks(cardId);
 }
 
 export function seedDemoCardsIfEmpty() {
