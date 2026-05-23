@@ -17,6 +17,8 @@ export function formatSeconds(seconds: number) {
 }
 
 export function getVideoSourceName(card: SegmentCard) {
+  if (card.sourceVideoTitle) return card.sourceVideoTitle;
+
   const map: Record<string, string> = {
     demo_food_001: '深夜小店热汤',
     demo_game_001: '团战反打高光',

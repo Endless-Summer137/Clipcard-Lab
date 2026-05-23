@@ -6,12 +6,25 @@ import { runBudgetGate } from '../core/budgetGate';
 import { generateSegmentCard } from '../core/cardEngine';
 import { saveCard } from '../core/cardStore';
 import { recordEvent } from '../core/eventStore';
-import type { SegmentCard } from '../core/types';
+import type { SegmentCard, SegmentSource, TriggerMode } from '../core/types';
 import { CardDetailView, CardQuickPreview } from './CardDetailView';
 import { defaultDemoVideos, readDemoConfig, type DemoVideoConfig } from './demoData';
 
 interface DemoFeedPageProps {
   onOpenProfile?: () => void;
+}
+
+interface ResolvedSegment {
+  segmentStart: number;
+  segmentEnd: number;
+  segmentSource: SegmentSource;
+  triggerMode: TriggerMode;
+  coverFrame: number;
+}
+
+interface ManualSegmentSelection {
+  segmentStart: number;
+  segmentEnd: number;
 }
 
 export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
@@ -147,18 +160,61 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
     return canvas.toDataURL('image/jpeg', 0.88);
   }
 
-  async function getCover(mode: 'current_frame' | 'segment_start_frame') {
+  function getDefaultSegment(triggerMode: TriggerMode): ResolvedSegment {
+    return {
+      segmentStart: video.defaultSegmentStart,
+      segmentEnd: video.defaultSegmentEnd,
+      segmentSource: 'default_demo_segment',
+      triggerMode,
+      coverFrame: video.defaultSegmentStart,
+    };
+  }
+
+  function resolveSegment(triggerMode: TriggerMode, selection?: ManualSegmentSelection): ResolvedSegment {
     const videoElement = videoElementRef.current;
-    const frame = mode === 'segment_start_frame'
-      ? video.defaultSegmentStart
-      : videoElement?.currentTime ?? video.defaultSegmentStart;
+
+    if (triggerMode === 'long_press' && selection) {
+      return {
+        segmentStart: Math.max(0, selection.segmentStart),
+        segmentEnd: Math.max(selection.segmentStart + 0.1, selection.segmentEnd),
+        segmentSource: 'long_press_selection',
+        triggerMode,
+        coverFrame: Math.max(0, selection.segmentStart),
+      };
+    }
+
+    if (triggerMode === 'long_press') {
+      // TODO: replace this fallback once the long-press range picker is wired.
+      return getDefaultSegment(triggerMode);
+    }
+
+    if (video.videoDataUrl && videoElement && videoElement.readyState >= 1 && Number.isFinite(videoElement.currentTime)) {
+      const currentTime = videoElement.currentTime;
+      const duration = Number.isFinite(videoElement.duration) ? videoElement.duration : Math.max(video.defaultSegmentEnd, currentTime + 1.5);
+      const segmentStart = Math.max(0, currentTime - 1.5);
+      const segmentEnd = Math.max(segmentStart + 0.1, Math.min(duration, currentTime + 1.5));
+
+      return {
+        segmentStart,
+        segmentEnd,
+        segmentSource: 'short_press_current_time',
+        triggerMode,
+        coverFrame: currentTime,
+      };
+    }
+
+    return getDefaultSegment(triggerMode);
+  }
+
+  async function getCover(frame: number, coverMode: 'current_frame' | 'segment_start_frame') {
+    const videoElement = videoElementRef.current;
 
     if (video.videoDataUrl && videoElement && videoElement.readyState >= 2 && videoElement.videoWidth) {
-      const coverImage = mode === 'segment_start_frame'
+      const coverImage = coverMode === 'segment_start_frame'
         ? await captureVideoFrameAt(videoElement, frame)
         : drawVideoFrame(videoElement);
 
-      if (coverImage) return { coverImage, coverFrame: frame, coverSource: mode };
+      if (coverImage) return { coverImage, coverFrame: frame, coverSource: coverMode };
     }
 
     return {
@@ -168,22 +224,24 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
     };
   }
 
-  async function buildCardFromVideo(mode: 'current_frame' | 'segment_start_frame' = 'current_frame') {
+  async function buildCardFromVideo(triggerMode: TriggerMode = 'short_press', selection?: ManualSegmentSelection) {
     setIsGeneratingCard(true);
     setActiveCard(null);
     setDetailCard(null);
     setCardFeedback('');
 
     try {
-      const cover = await getCover(mode);
+      const segment = resolveSegment(triggerMode, selection);
+      const coverMode = segment.segmentSource === 'short_press_current_time' ? 'current_frame' : 'segment_start_frame';
+      const cover = await getCover(segment.coverFrame, coverMode);
       const budgetResult = runBudgetGate({
         videoId: video.videoId,
-        triggerMode: mode === 'segment_start_frame' ? 'long_press' : 'short_press',
+        triggerMode: segment.triggerMode,
         videoTitle: video.videoTitle,
         videoDescription: video.videoDescription,
         tags: video.tags,
-        segmentStart: video.defaultSegmentStart,
-        segmentEnd: video.defaultSegmentEnd,
+        segmentStart: segment.segmentStart,
+        segmentEnd: segment.segmentEnd,
         transcriptExcerpt: video.transcriptExcerpt,
         segmentNote: video.segmentNote,
       });
@@ -200,8 +258,9 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
         videoTitle: video.videoTitle,
         videoDescription: video.videoDescription,
         tags: video.tags,
-        segmentStart: video.defaultSegmentStart,
-        segmentEnd: video.defaultSegmentEnd,
+        segmentStart: segment.segmentStart,
+        segmentEnd: segment.segmentEnd,
+        segmentSource: segment.segmentSource,
         transcriptExcerpt: video.transcriptExcerpt,
         segmentNote: video.segmentNote,
         budgetResult,
@@ -216,7 +275,7 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
         cardId: card.cardId,
         segmentStart: card.segmentStart,
         segmentEnd: card.segmentEnd,
-        metadata: { budgetLevel: budgetResult.level, adDecision: adDecision.decision },
+        metadata: { budgetLevel: budgetResult.level, adDecision: adDecision.decision, segmentSource: card.segmentSource },
       });
       if (adDecision.decision === 'allow') {
         recordEvent({
@@ -246,7 +305,7 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
     clearLongPressTimer();
     longPressTimerRef.current = window.setTimeout(() => {
       longPressTriggeredRef.current = true;
-      void buildCardFromVideo('segment_start_frame');
+      void buildCardFromVideo('long_press');
     }, 650);
   }
 
@@ -260,7 +319,7 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
       return;
     }
 
-    void buildCardFromVideo('current_frame');
+    void buildCardFromVideo('short_press');
   }
 
   function recordCardAction(eventType: 'card_saved' | 'card_shared' | 'card_added_to_clipbook') {

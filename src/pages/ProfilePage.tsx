@@ -2,7 +2,7 @@ import { Gamepad2, Grid3X3, Lightbulb, Menu, Search, ShoppingCart, UserPlus, Wal
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import type { SegmentCard } from '../core/types';
-import { getCards } from '../core/cardStore';
+import { useClipCards } from '../hooks/useClipCards';
 import { CardDetailView, CardThumbnail } from './CardDetailView';
 import { defaultDemoVideos, readDemoConfig } from './demoData';
 
@@ -30,7 +30,7 @@ const templates = [
 export function ProfilePage({ onNavigate }: ProfilePageProps) {
   const [activeTab, setActiveTab] = useState<ProfileTab>('works');
   const [selectedCard, setSelectedCard] = useState<SegmentCard | null>(null);
-  const [cards, setCards] = useState<SegmentCard[]>(() => getCards());
+  const { cards, refreshCards } = useClipCards();
   const videos = readDemoConfig();
   const displayVideos = videos.length >= 3 ? videos.slice(0, 3) : defaultDemoVideos;
   const recentCards = cards.slice(0, 3);
@@ -143,7 +143,7 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
         <CardDetailView
           card={selectedCard}
           onClose={() => setSelectedCard(null)}
-          onDeleted={(cardId) => setCards((current) => current.filter((card) => card.cardId !== cardId))}
+          onDeleted={refreshCards}
         />
       ) : null}
     </main>

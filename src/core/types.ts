@@ -1,6 +1,7 @@
 export type BudgetLevel = 0 | 1 | 2 | 3 | 4;
 
 export type TriggerMode = 'short_press' | 'long_press';
+export type SegmentSource = 'long_press_selection' | 'short_press_current_time' | 'default_demo_segment';
 
 export type BudgetRoute =
   | 'visual_scene_first'
@@ -93,6 +94,7 @@ export interface CardEngineInput {
   tags: string[];
   segmentStart: number;
   segmentEnd: number;
+  segmentSource: SegmentSource;
   transcriptExcerpt: string;
   segmentNote: string;
   budgetResult: BudgetResult;
@@ -107,6 +109,8 @@ export interface SegmentCard {
   videoId: string;
   segmentStart: number;
   segmentEnd: number;
+  segmentSource: SegmentSource;
+  sourceVideoTitle: string;
   cardType: string;
   title: string;
   summary: string;

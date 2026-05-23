@@ -9,9 +9,9 @@ import {
   removeClipbookPlacement,
   setClipbookPlacement,
 } from '../core/clipbookPlacementStore';
+import { useClipCards } from '../hooks/useClipCards';
 import { CardDetailView, CardThumbnail } from './CardDetailView';
 import { UserSubPageShell } from './UserSubPageShell';
-import { useClipCards } from './useClipCards';
 
 type NavigateTarget = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook' | 'dresser';
 
@@ -79,6 +79,7 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
     if (!selectingSlotId || placedCardIds.has(card.cardId)) return;
     setClipbookPlacement({ templateId: selectedTemplate.id, slotId: selectingSlotId, cardId: card.cardId });
     setPlacements(getClipbookPlacements(selectedTemplate.id));
+    refreshCards();
     setSelectingSlotId(null);
     setFeedback('已放入槽位。');
   }
@@ -86,6 +87,7 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
   function clearSlot(slotId: string) {
     removeClipbookPlacement(selectedTemplate.id, slotId);
     setPlacements(getClipbookPlacements(selectedTemplate.id));
+    refreshCards();
   }
 
   function openSlotPicker(slotId: string) {
@@ -224,6 +226,8 @@ export function ClipbookPage({ onNavigate, devMode = false }: ClipbookPageProps)
         <CardPickerModal
           placedCardIds={placedCardIds}
           devMode={devMode}
+          templateId={selectedTemplate.id}
+          selectedSlotId={selectingSlotId}
           onClose={() => setSelectingSlotId(null)}
           onSelect={placeCard}
         />
@@ -325,11 +329,15 @@ function SlotCard({ card, onClear }: { card: SegmentCard; onClear: (event: Mouse
 function CardPickerModal({
   placedCardIds,
   devMode = false,
+  templateId,
+  selectedSlotId,
   onClose,
   onSelect,
 }: {
   placedCardIds: Set<string>;
   devMode?: boolean;
+  templateId: string;
+  selectedSlotId: string;
   onClose: () => void;
   onSelect: (card: SegmentCard) => void;
 }) {
@@ -340,8 +348,8 @@ function CardPickerModal({
   }, [refreshCards]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-stone-900/35 px-4 backdrop-blur-sm">
-      <section className="flex h-[70vh] w-full max-w-[430px] flex-col rounded-t-[30px] bg-[#fffdf7] p-4 shadow-2xl">
+    <div className="fixed inset-0 z-[70] flex items-end justify-center bg-stone-900/35 px-4 backdrop-blur-sm">
+      <section className="relative z-10 flex h-[72vh] w-full max-w-[430px] flex-col rounded-t-[30px] bg-[#fffdf7] p-4 text-stone-900 shadow-2xl">
         <header className="flex shrink-0 items-center justify-between">
           <h2 className="text-lg font-semibold">选择卡片</h2>
           <button type="button" onClick={onClose} aria-label="退出选择" className="rounded-full bg-stone-100 p-2">
@@ -371,7 +379,14 @@ function CardPickerModal({
             还没有可放入手账的卡片。先在视频里点击“保存这一刻”生成卡片。
           </p>
         )}
-        {devMode ? <p className="mt-2 text-center text-xs text-stone-400">当前 cardStore 卡片数量：{cards.length}</p> : null}
+        {devMode ? (
+          <div className="mt-2 rounded-2xl bg-stone-100 px-3 py-2 text-xs leading-5 text-stone-500">
+            <p>当前 cardStore 卡片数量：{cards.length}</p>
+            <p>当前 templateId：{templateId}</p>
+            <p>当前 selectedSlotId：{selectedSlotId}</p>
+            <p>当前已放置 cardIds：{Array.from(placedCardIds).join(', ') || '无'}</p>
+          </div>
+        ) : null}
       </section>
     </div>
   );

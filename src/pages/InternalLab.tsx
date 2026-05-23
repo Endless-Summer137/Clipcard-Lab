@@ -34,6 +34,7 @@ export function InternalLab() {
     tags: video.tags,
     segmentStart: video.defaultSegmentStart,
     segmentEnd: video.defaultSegmentEnd,
+    segmentSource: 'default_demo_segment',
     transcriptExcerpt: video.transcriptExcerpt,
     segmentNote: video.segmentNote,
     budgetResult: budget,

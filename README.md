@@ -11,7 +11,7 @@ The app separates shared mechanism logic from page-level demos:
 - `src/core/budgetGate.ts`: analysis budget, route selection, and minimum necessary frame/audio strategy.
 - `src/core/adGate.ts`: ad-fit decision and mandatory ad disclosure metadata.
 - `src/core/cardEngine.ts`: local rule-based clip-card generation, with an input shape ready for future AI APIs.
-- `src/core/cardStore.ts`: local `localStorage` card persistence.
+- `src/core/cardStore.ts`: local `localStorage` card persistence under `clipcard.cards`, with older-card normalization.
 - `src/core/eventStore.ts`: local `localStorage` user event logging.
 - `src/core/trendAnalytics.ts`: video-time bucket aggregation for creator trend charts.
 - `src/core/clipbookTemplateStore.ts`: local clipbook template images, natural image size metadata, and percentage-based slot configuration.
@@ -19,7 +19,8 @@ The app separates shared mechanism logic from page-level demos:
 
 Page responsibilities are intentionally split:
 
-- `DemoFeedPage`: user-facing short-video feed demo. It calls the core modules and shows the generated card result, not the internal gates.
+- `DemoFeedPage`: user-facing short-video feed demo. It resolves the user-triggered segment, calls the core modules, and shows the generated card result, not the internal gates.
+- `useClipCards`: shared hook for reading, refreshing, saving, and deleting cards from one card store.
 - `ProfilePage`: short-video-style personal homepage with creator-center and card entrances.
 - `UserSubPageShell`: shared light app-page shell for profile subpages such as my cards, clipbook, dresser, and creator center.
 - `CardThumbnail`, `CardQuickPreview`, and `CardDetailView`: shared card presentation components for thumbnail grids, feed quick preview, and full card reading.
@@ -46,7 +47,8 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 
 - Sample clip scenarios: 美食探店, 游戏高光, 旅行风景, 低信息片段.
 - Real video test mode for local `mp4` / `webm` uploads through the hidden demo-material configuration mode.
-- Clip start/end selection with seconds inputs and demo defaults.
+- Demo default segment fields named `defaultSegmentStart` / `defaultSegmentEnd`, used only as fallback when no real user-triggered segment is available.
+- Short-press segment generation from the current video time when a real video is available, with `segmentSource` stored on every generated card.
 - Analysis budget gate that starts from trigger mode and segment duration, then revises the level with title, description, tags, transcript, platform signals, and visual signals.
 - Budget routes for scene-first, visual-step-first, transcript-first, OCR-first, motion/audio-first, and low-information clips.
 - Minimum necessary frame/audio strategy for Level 0-3, with OCR / transcript / visual-step needs exposed for the internal mechanism page.

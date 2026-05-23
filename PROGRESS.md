@@ -44,6 +44,11 @@
 - Reworked `budgetGate` so segment duration is only the base level; final budget now also considers trigger mode, title, description, tags, transcript, platform signals, and simulated visual signals.
 - Added budget routes for `visual_scene_first`, `visual_step_first`, `transcript_first`, `ocr_first`, `motion_audio_first`, and `low_info`, with Level 0-3 frame/audio strategies and explicit OCR / transcript / visual-step needs.
 - Added internal budget-gate acceptance cases for game skills, scenery, blurry low-info clips, knowledge subtitles, and editing-software OCR content.
+- Reframed hidden config `start` / `end` fields as `defaultSegmentStart` / `defaultSegmentEnd` with fallback-only copy, so demo defaults no longer look like user-selected final segments.
+- Updated feed card generation to resolve the segment before card creation: short press uses `video.currentTime ± 1.5s` when a real video is available, long-press selection is structurally reserved, and demo placeholders fall back to the configured default segment.
+- Added `segmentSource` and `sourceVideoTitle` to generated/stored cards, and normalized older stored cards when reading `clipcard.cards`.
+- Moved card access into `src/hooks/useClipCards`, shared by profile, my-cards, clipbook slots, and the picker, with save/delete/refresh helpers over the same `clipcard.cards` store.
+- Strengthened the clipbook picker so it refreshes cards when opened, renders visible `CardThumbnail` cards in a scrollable 72vh sheet, and shows dev-only card count / template / slot / placed-card ids.
 
 ## Validation
 
@@ -75,6 +80,8 @@
 - Browser verification confirmed the feed bookmark opens the new light quick preview, “查看完整卡片” opens `CardDetailView`, the clipbook slot picker reads the same saved cards visible in `MyCardsPage`, and selecting a card places it into the clicked template slot while placed cards show the disabled `已放置` state.
 - `npm.cmd run build` completed successfully after the budget-gate route/level rewrite.
 - Browser verification on `?page=internal&dev=1` confirmed the budget-gate acceptance section renders the five required cases with the expected routes and no failed case marker.
+- `npm.cmd run build` completed successfully after the segment-source and card-store data-flow repair.
+- Browser verification confirmed the hidden config shows `defaultSegmentStart` / `defaultSegmentEnd` plus fallback explanation, the feed still generates the light quick preview, `MyCardsPage` and the clipbook picker both displayed 7 cards from the shared store, and selecting a card placed it into the clicked clipbook slot.
 
 ## Current Repository Agreement
 

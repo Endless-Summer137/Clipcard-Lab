@@ -37,6 +37,10 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
     coverFrame: input.coverFrame,
     coverSource: input.coverSource,
   };
+  const sourceFields = {
+    segmentSource: input.segmentSource,
+    sourceVideoTitle: input.videoTitle,
+  };
 
   if (isLightCard) {
     return {
@@ -44,6 +48,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
       videoId: input.videoId,
       segmentStart: input.segmentStart,
       segmentEnd: input.segmentEnd,
+      ...sourceFields,
       cardType: '待补充片段',
       title: '需要补充信息的片段',
       summary: '仅凭当前信息还不足以判断明确意图，更像是一个需要补充说明的保存点。',
@@ -61,6 +66,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
       videoId: input.videoId,
       segmentStart: input.segmentStart,
       segmentEnd: input.segmentEnd,
+      ...sourceFields,
       cardType,
       title: `轻量瞬间卡：${input.videoTitle}`,
       summary: `从当前片段看，${sourceText} 更像是一个适合快速保存的瞬间；如果后续内容进入更明确语境，可以再生成完整片段卡。`,
@@ -79,6 +85,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
     videoId: input.videoId,
     segmentStart: input.segmentStart,
     segmentEnd: input.segmentEnd,
+    ...sourceFields,
     cardType,
     title: `${cardType}：${input.videoTitle}`,
     summary: `从当前片段看，${sourceText} 可能形成一个值得保存的片段；如果后续内容进入更明确语境，判断可以继续收紧。`,

@@ -50,6 +50,9 @@ export function AdminConfigPage({ onNavigate }: AdminConfigPageProps) {
           {videos.map((item, index) => (
             <section key={item.videoId || index} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
               <h2 className="font-semibold text-white">演示视频 {index + 1}</h2>
+              <p className="mt-2 rounded-md border border-teal-300/20 bg-teal-300/10 px-3 py-2 text-xs leading-5 text-teal-50">
+                默认演示片段，仅用于未手动选段时的 fallback。真实使用时，片段时间来自用户短按或长按选择。
+              </p>
               <label className="mt-3 block text-sm text-slate-300">
                 视频文件
                 <input type="file" accept="video/mp4,video/webm" onChange={(event) => onVideoUpload(index, event)} className="mt-2 w-full text-sm text-slate-300" />
@@ -72,11 +75,11 @@ export function AdminConfigPage({ onNavigate }: AdminConfigPageProps) {
               </label>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <label className="block text-sm text-slate-300">
-                  start
+                  defaultSegmentStart
                   <input type="number" value={item.defaultSegmentStart} onChange={(event) => updateVideo(index, { defaultSegmentStart: Number(event.target.value) })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
                 </label>
                 <label className="block text-sm text-slate-300">
-                  end
+                  defaultSegmentEnd
                   <input type="number" value={item.defaultSegmentEnd} onChange={(event) => updateVideo(index, { defaultSegmentEnd: Number(event.target.value) })} className="mt-2 w-full rounded-md border border-white/10 bg-slate-900 p-2 text-white" />
                 </label>
               </div>
