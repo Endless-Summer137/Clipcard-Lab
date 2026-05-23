@@ -333,10 +333,10 @@ export function DemoFeedPage({ onOpenProfile }: DemoFeedPageProps) {
           <p className="text-sm font-semibold">{video.authorName}</p>
           <p className="mt-2 max-w-[78%] text-sm leading-6 text-white/82">{video.videoDescription}</p>
         </section>
-        <footer className="absolute bottom-0 left-0 right-0 z-20 grid grid-cols-5 border-t border-white/30 bg-zinc-200/72 px-2 py-3 text-center text-xs text-slate-700 shadow-[0_-10px_28px_rgba(15,23,42,0.14)] backdrop-blur-md">
-          <button type="button" className="font-semibold text-slate-950">首页</button>
+        <footer className="absolute bottom-0 left-0 right-0 z-20 grid grid-cols-5 border-t border-white/12 bg-[rgba(18,18,18,0.82)] px-2 py-3 text-center text-xs text-white/82 shadow-[0_-10px_28px_rgba(15,23,42,0.18)] backdrop-blur-[14px]">
+          <button type="button" className="font-semibold text-white">首页</button>
           <button type="button">朋友</button>
-          <button type="button" className="text-lg leading-none text-slate-950">+</button>
+          <button type="button" className="text-lg leading-none text-white">+</button>
           <button type="button">消息</button>
           <button type="button" onClick={onOpenProfile}>我</button>
         </footer>

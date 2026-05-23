@@ -3,11 +3,12 @@ import { AdminConfigPage } from './pages/AdminConfigPage';
 import { ClipbookPage, MyCardsPage } from './pages/Placeholders';
 import { CreatorCenter } from './pages/CreatorCenter';
 import { DemoFeedPage } from './pages/DemoFeedPage';
+import { DresserPage } from './pages/DresserPage';
 import { InternalLab } from './pages/InternalLab';
 import { ProfilePage } from './pages/ProfilePage';
 
-type PageId = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook';
-type PageParam = 'demo' | 'admin' | 'internal' | 'creator' | 'profile' | 'cards' | 'clipbook';
+type PageId = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook' | 'dresser';
+type PageParam = 'demo' | 'admin' | 'internal' | 'creator' | 'profile' | 'cards' | 'clipbook' | 'dresser';
 
 const pageParamToId: Record<PageParam, PageId> = {
   demo: 'demoFeed',
@@ -17,6 +18,7 @@ const pageParamToId: Record<PageParam, PageId> = {
   profile: 'profile',
   cards: 'myCards',
   clipbook: 'clipbook',
+  dresser: 'dresser',
 };
 
 const pageIdToParam: Record<PageId, PageParam> = {
@@ -27,6 +29,7 @@ const pageIdToParam: Record<PageId, PageParam> = {
   profile: 'profile',
   myCards: 'cards',
   clipbook: 'clipbook',
+  dresser: 'dresser',
 };
 
 const devPages: Array<{ id: PageId; label: string; description: string }> = [
@@ -37,6 +40,7 @@ const devPages: Array<{ id: PageId; label: string; description: string }> = [
   { id: 'profile', label: '我页面', description: '个人主页入口' },
   { id: 'myCards', label: '我的卡片', description: '卡片列表占位' },
   { id: 'clipbook', label: '卡片手账', description: '手账模板占位' },
+  { id: 'dresser', label: '卡片妆台', description: '贴纸和样式占位' },
 ];
 
 function readRoute() {
@@ -96,7 +100,9 @@ export default function App() {
       case 'myCards':
         return <MyCardsPage onNavigate={navigate} />;
       case 'clipbook':
-        return <ClipbookPage onNavigate={navigate} />;
+        return <ClipbookPage onNavigate={navigate} devMode={route.dev} />;
+      case 'dresser':
+        return <DresserPage onNavigate={navigate} />;
       case 'demoFeed':
       default:
         return <DemoFeedPage onOpenProfile={() => navigate('profile', { dev: false })} />;

@@ -14,6 +14,8 @@ The app separates shared mechanism logic from page-level demos:
 - `src/core/cardStore.ts`: local `localStorage` card persistence.
 - `src/core/eventStore.ts`: local `localStorage` user event logging.
 - `src/core/trendAnalytics.ts`: video-time bucket aggregation for creator trend charts.
+- `src/core/clipbookTemplateStore.ts`: local clipbook template images and percentage-based slot configuration.
+- `src/core/clipbookPlacementStore.ts`: local per-template slot-to-card placement persistence.
 
 Page responsibilities are intentionally split:
 
@@ -23,6 +25,7 @@ Page responsibilities are intentionally split:
 - `InternalLab`: shows budget/ad/card-engine internals for explanation and review.
 - `MyCardsPage`: light themed three-column card library with card detail view.
 - `ClipbookPage`: light themed clipbook template demo with FPS, landscape, and blank-book templates.
+- `DresserPage`: placeholder card dresser entrance for future color and sticker editing.
 
 ## Page URLs
 
@@ -31,6 +34,7 @@ Page responsibilities are intentionally split:
 - `/?page=creator`: creator center.
 - `/?page=cards`: my cards.
 - `/?page=clipbook`: card clipbook.
+- `/?page=dresser`: card dresser placeholder.
 - `/?page=admin&dev=1`: hidden demo-material configuration page.
 - `/?page=internal&dev=1`: internal mechanism lab.
 
@@ -48,7 +52,9 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 - Local `localStorage` card persistence and event logging.
 - Collectible ClipCard card visuals with themed mini cards, detail view, fixed ad disclosure area, and scrollable card content.
 - Cover-style card thumbnails that use saved video-frame covers when available and fall back to soft light-card surfaces for low-information clips.
-- A basic card clipbook flow with selectable templates, card slots, placeholder share/publish actions, and a small sticker preset area.
+- A basic card clipbook flow with selectable templates, percentage-based card slots, placed-card removal, placeholder share/publish actions, and disabled duplicate placement in the card picker.
+- Dev-only clipbook template image upload plus numeric `x/y/w/h` slot adjustment for configuring custom template layouts.
+- A card dresser placeholder that keeps sticker/color customization separate from the clipbook editor.
 - Multi-metric 10-second trend buckets with `recharts`, including card generation, saves, shares, clipbook adds, and ad clicks.
 - Ad-fit gate decisions that require clear ad labeling and do not present ads as neutral AI advice.
 - A shared-core architecture so the short-video feed, creator center, internal lab, future card library, and future clipbook use the same card, event, trend, budget, and ad logic.

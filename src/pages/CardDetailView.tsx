@@ -1,5 +1,9 @@
 import { Download, Share2, Trash2, X } from 'lucide-react';
+import { useState } from 'react';
 import type { SegmentCard } from '../core/types';
+import { deleteCard } from '../core/cardStore';
+import { recordEvent } from '../core/eventStore';
+import { removeClipbookPlacementsByCardId } from '../core/clipbookPlacementStore';
 
 const userAdPreference = {
   enabled: true,
@@ -132,16 +136,31 @@ export function CardMini({ card, onClick }: { card: SegmentCard; onClick: () => 
   );
 }
 
-export function CardDetailView({ card, onClose }: { card: SegmentCard; onClose: () => void }) {
+export function CardDetailView({ card, onClose, onDeleted }: { card: SegmentCard; onClose: () => void; onDeleted?: (cardId: string) => void }) {
   const theme = getCardTheme(card);
   const adLabel = getAdLabel(card);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  function confirmDeleteCard() {
+    deleteCard(card.cardId);
+    removeClipbookPlacementsByCardId(card.cardId);
+    recordEvent({
+      eventType: 'card_deleted',
+      videoId: card.videoId,
+      cardId: card.cardId,
+      segmentStart: card.segmentStart,
+      segmentEnd: card.segmentEnd,
+    });
+    onDeleted?.(card.cardId);
+    onClose();
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/30 px-4 py-6 backdrop-blur-sm">
       <article className={`relative flex h-[82vh] w-full max-w-[430px] flex-col overflow-hidden rounded-[30px] border p-4 shadow-2xl ${theme.panel}`}>
         <header className="flex shrink-0 items-center justify-between px-1 pb-3">
           <div className="flex items-center gap-4">
-            <button type="button" aria-label="删除" className="opacity-72 transition hover:opacity-100">
+            <button type="button" onClick={() => setConfirmingDelete(true)} aria-label="删除" className="opacity-72 transition hover:opacity-100">
               <Trash2 className="h-5 w-5" strokeWidth={1.9} />
             </button>
             <button type="button" aria-label="分享" className="opacity-72 transition hover:opacity-100">
@@ -193,6 +212,23 @@ export function CardDetailView({ card, onClose }: { card: SegmentCard; onClose: 
           </aside>
         ) : null}
       </article>
+
+      {confirmingDelete ? (
+        <section className="absolute inset-0 z-10 flex items-center justify-center bg-stone-900/35 px-8 backdrop-blur-sm">
+          <div className="w-full max-w-[300px] rounded-[24px] bg-white px-5 py-5 text-center text-stone-900 shadow-2xl">
+            <h3 className="text-base font-semibold">确定删除这张卡片吗？</h3>
+            <p className="mt-2 text-sm leading-6 text-stone-500">删除后会从我的卡片和已放入的手账槽位中移除。</p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => setConfirmingDelete(false)} className="rounded-full bg-stone-100 px-4 py-2 text-sm font-medium text-stone-700">
+                取消
+              </button>
+              <button type="button" onClick={confirmDeleteCard} className="rounded-full bg-stone-900 px-4 py-2 text-sm font-medium text-white">
+                删除
+              </button>
+            </div>
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 }

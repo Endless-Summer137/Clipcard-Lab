@@ -6,7 +6,7 @@ import { getCards } from '../core/cardStore';
 import { CardDetailView, CardMini } from './CardDetailView';
 import { defaultDemoVideos, readDemoConfig } from './demoData';
 
-type NavigateTarget = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook';
+type NavigateTarget = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook' | 'dresser';
 type ProfileTab = 'works' | 'daily' | 'favorites' | 'likes' | 'cards';
 
 interface ProfilePageProps {
@@ -30,8 +30,8 @@ const templates = [
 export function ProfilePage({ onNavigate }: ProfilePageProps) {
   const [activeTab, setActiveTab] = useState<ProfileTab>('works');
   const [selectedCard, setSelectedCard] = useState<SegmentCard | null>(null);
+  const [cards, setCards] = useState<SegmentCard[]>(() => getCards());
   const videos = readDemoConfig();
-  const cards = getCards();
   const displayVideos = videos.length >= 3 ? videos.slice(0, 3) : defaultDemoVideos;
   const recentCards = cards.slice(0, 3);
 
@@ -139,7 +139,13 @@ export function ProfilePage({ onNavigate }: ProfilePageProps) {
         </footer>
       </section>
 
-      {selectedCard ? <CardDetailView card={selectedCard} onClose={() => setSelectedCard(null)} /> : null}
+      {selectedCard ? (
+        <CardDetailView
+          card={selectedCard}
+          onClose={() => setSelectedCard(null)}
+          onDeleted={(cardId) => setCards((current) => current.filter((card) => card.cardId !== cardId))}
+        />
+      ) : null}
     </main>
   );
 }
@@ -158,6 +164,7 @@ function CardCenter({
       <section className="grid gap-3">
         <HubEntry title="我的卡片" description="保存过的片段卡都在这里。" onClick={() => onNavigate('myCards', { dev: false })} />
         <HubEntry title="卡片手账" description="把卡片放进模板，生成可分享手账。" onClick={() => onNavigate('clipbook', { dev: false })} />
+        <HubEntry title="卡片妆台" description="给卡片换颜色、加贴纸，整理成你的专属风格。" onClick={() => onNavigate('dresser', { dev: false })} />
       </section>
 
       <section>

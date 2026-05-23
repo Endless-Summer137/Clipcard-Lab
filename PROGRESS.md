@@ -29,6 +29,12 @@
 - Changed the demo feed bottom Tab from black to a neutral translucent gray and added card cover metadata (`coverImage`, `coverFrame`, `coverSource`) captured from the current video frame or a generated demo cover.
 - Changed card thumbnails into cover-first mini cards that show only the card type label and display title, with full text remaining in the detail view.
 
+- Darkened only the short-video feed bottom Tab to a deeper translucent gray with blur, while leaving the light profile/card pages unchanged.
+- Implemented real card deletion from `CardDetailView` with an in-app confirmation prompt, `cardStore` removal, `card_deleted` event logging, parent-list refresh, and clipbook placement cleanup.
+- Moved sticker capability out of the clipbook editor and into a new `Card Dresser` route/entry, keeping the dresser as a light placeholder for future color and sticker editing.
+- Added `clipbookTemplateStore` and `clipbookPlacementStore` for local template image/slot configuration and per-slot card placement persistence.
+- Upgraded `ClipbookPage` with FPS/landscape/blank percentage-based slots, dev-only template image upload, dev-only numeric `x/y/w/h` slot adjustment, arbitrary slot selection, placed-card removal, and disabled gray `已放置` cards in the picker.
+
 ## Validation
 
 - `npm.cmd install` completed successfully.
@@ -46,6 +52,10 @@
 - `npm.cmd run build` completed successfully after the profile metrics-row adjustment. Browser verification confirmed `编辑资料` appears once as a small same-row capsule button beside the metrics.
 - `npm.cmd run build` completed successfully after the light card/clipbook update. Browser verification confirmed profile light styling, card center entries/templates/recent previews, three-column `我的卡片`, card detail top icons and scrollable content, fixed ad disclosure, clipbook FPS/landscape/blank templates, blank-book title input, slots, stickers, and share/publish placeholders.
 - `npm.cmd run build` completed successfully after the cover-thumbnail update. Browser verification confirmed the demo feed bottom Tab is no longer black, new saved cards get cover images, `我的卡片` thumbnails show image cover plus type/title only, and clicking a thumbnail still opens `CardDetailView`.
+
+- `npm.cmd run build` completed successfully after the clipbook slot/dresser update.
+- Browser verification confirmed the short-video feed footer uses `rgba(18, 18, 18, 0.82)` with blur, profile card center exposes the new `卡片妆台` entry, `?page=dresser` renders the dresser placeholder, normal clipbook mode hides template configuration and sticker presets, `?page=clipbook&dev=1` shows template upload plus 12 FPS slot inputs, and placed cards become gray/disabled with an `已放置` marker in the slot picker.
+- Source and type-build validation confirmed the new app-level card delete prompt removes the card, writes `card_deleted`, refreshes visible lists through `onDeleted`, and clears clipbook placements for the deleted card.
 
 ## Current Repository Agreement
 
