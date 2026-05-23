@@ -3,6 +3,9 @@ import { removeCardFromClipbooks } from './clipbookStore';
 
 const CARD_STORE_KEY = 'clipcard.cards';
 const LEGACY_CARD_STORE_KEYS = ['clipcard-lab-cards-v1'];
+const SEED_INITIALIZED_KEY = 'clipcard.seedDemoCardsInitialized';
+const DELETED_SEED_CARD_IDS_KEY = 'clipcard.deletedSeedCardIds';
+const SEED_CARD_IDS = ['demo_card_food', 'demo_card_game', 'demo_card_travel'];
 
 function getFallbackVideoTitle(videoId: string) {
   const map: Record<string, string> = {
@@ -82,6 +85,22 @@ function writeCards(cards: SegmentCard[]) {
   localStorage.setItem(CARD_STORE_KEY, JSON.stringify(cards));
 }
 
+function readDeletedSeedCardIds() {
+  try {
+    const raw = localStorage.getItem(DELETED_SEED_CARD_IDS_KEY);
+    return new Set(raw ? JSON.parse(raw) as string[] : []);
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function markSeedCardDeleted(cardId: string) {
+  if (!SEED_CARD_IDS.includes(cardId)) return;
+  const deletedIds = readDeletedSeedCardIds();
+  deletedIds.add(cardId);
+  localStorage.setItem(DELETED_SEED_CARD_IDS_KEY, JSON.stringify(Array.from(deletedIds)));
+}
+
 export function saveCard(card: SegmentCard) {
   const cards = readCards();
   const normalizedCard = normalizeCard(card);
@@ -106,12 +125,17 @@ export function updateCard(cardId: string, patch: Partial<SegmentCard>) {
 }
 
 export function deleteCard(cardId: string) {
+  markSeedCardDeleted(cardId);
   writeCards(readCards().filter((card) => card.cardId !== cardId));
   removeCardFromClipbooks(cardId);
 }
 
 export function seedDemoCardsIfEmpty() {
-  if (readCards().length > 0) return;
+  if (localStorage.getItem(SEED_INITIALIZED_KEY) === '1') return;
+  if (readCards().length > 0) {
+    localStorage.setItem(SEED_INITIALIZED_KEY, '1');
+    return;
+  }
 
   const createdAt = new Date().toISOString();
   const baseCard = {
@@ -126,7 +150,8 @@ export function seedDemoCardsIfEmpty() {
     coverSource: 'none' as const,
   };
 
-  writeCards([
+  const deletedSeedCardIds = readDeletedSeedCardIds();
+  const seedCards: SegmentCard[] = [
     {
       ...baseCard,
       cardId: 'demo_card_food',
@@ -175,5 +200,8 @@ export function seedDemoCardsIfEmpty() {
       saveReason: '用户可能想保存这段作为城市漫步或出行灵感。',
       evidenceNote: '演示卡片基于本地 demo 输入生成，不代表真实视觉识别结果。',
     },
-  ]);
+  ].filter((card) => !deletedSeedCardIds.has(card.cardId));
+
+  writeCards(seedCards);
+  localStorage.setItem(SEED_INITIALIZED_KEY, '1');
 }

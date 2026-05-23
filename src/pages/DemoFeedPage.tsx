@@ -1,5 +1,5 @@
-import { Bookmark, Heart, MessageCircle, Search, Share2, Star } from 'lucide-react';
-import type { TouchEvent, WheelEvent } from 'react';
+import { Bookmark, Heart, MessageCircle, Play, Search, Share2, Star } from 'lucide-react';
+import type { MouseEvent, TouchEvent, WheelEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { runAdGate } from '../core/adGate';
 import { runBudgetGate } from '../core/budgetGate';
@@ -30,13 +30,32 @@ interface ManualSegmentSelection {
   segmentEnd: number;
 }
 
+function getRequestedVideoId() {
+  return new URLSearchParams(window.location.search).get('videoId');
+}
+
+function getRequestedSeekTime() {
+  const value = new URLSearchParams(window.location.search).get('time');
+  if (value === null) return null;
+  const seconds = Number(value);
+  return Number.isFinite(seconds) ? Math.max(0, seconds) : null;
+}
+
+function findVideoIndex(videos: DemoVideoConfig[], videoId: string | null) {
+  if (!videoId) return 0;
+  const index = videos.findIndex((item) => item.videoId === videoId);
+  return index >= 0 ? index : 0;
+}
+
 export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeedPageProps) {
   const [videos, setVideos] = useState<DemoVideoConfig[]>(() => readDemoConfig());
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(() => findVideoIndex(readDemoConfig(), getRequestedVideoId()));
   const [activeCard, setActiveCard] = useState<SegmentCard | null>(null);
   const [detailCard, setDetailCard] = useState<SegmentCard | null>(null);
   const [cardFeedback, setCardFeedback] = useState('');
   const [isGeneratingCard, setIsGeneratingCard] = useState(false);
+  const [isVideoPaused, setIsVideoPaused] = useState(false);
+  const [requestedSeekTime, setRequestedSeekTime] = useState<number | null>(() => getRequestedSeekTime());
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
   const [videoObjectUrls, setVideoObjectUrls] = useState<Record<string, string>>({});
   const [brokenVideoIds, setBrokenVideoIds] = useState<Set<string>>(() => new Set());
@@ -46,7 +65,10 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
   const videoSrc = brokenVideoIds.has(video.videoId) ? undefined : videoObjectUrls[video.videoId] ?? video.videoDataUrl;
 
   useEffect(() => {
-    setVideos(readDemoConfig());
+    const nextVideos = readDemoConfig();
+    setVideos(nextVideos);
+    setActiveIndex(findVideoIndex(nextVideos, getRequestedVideoId()));
+    setRequestedSeekTime(getRequestedSeekTime());
   }, []);
 
   useEffect(() => {
@@ -92,10 +114,39 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
   }
 
   function switchVideo(direction: 1 | -1) {
+    const videoCount = videos.length || 1;
     setActiveCard(null);
     setDetailCard(null);
     setCardFeedback('');
-    setActiveIndex((index) => (index + direction + 3) % 3);
+    setIsVideoPaused(false);
+    setRequestedSeekTime(null);
+    setActiveIndex((index) => (index + direction + videoCount) % videoCount);
+  }
+
+  function stopVideoToggle(event: MouseEvent<HTMLElement>) {
+    event.stopPropagation();
+  }
+
+  function seekToRequestedTime(videoElement: HTMLVideoElement) {
+    if (requestedSeekTime === null) return;
+    const duration = Number.isFinite(videoElement.duration) ? videoElement.duration : requestedSeekTime;
+    videoElement.currentTime = Math.max(0, Math.min(requestedSeekTime, duration || requestedSeekTime));
+    setRequestedSeekTime(null);
+  }
+
+  function toggleVideoPlayback() {
+    const videoElement = videoElementRef.current;
+    if (!videoSrc || !videoElement) return;
+
+    if (videoElement.paused) {
+      void videoElement.play()
+        .then(() => setIsVideoPaused(false))
+        .catch(() => setIsVideoPaused(true));
+      return;
+    }
+
+    videoElement.pause();
+    setIsVideoPaused(true);
   }
 
   function drawCoverText(context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number) {
@@ -368,25 +419,41 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
     setTouchStartY(null);
   }
 
+  useEffect(() => {
+    const videoElement = videoElementRef.current;
+    if (!videoElement || requestedSeekTime === null) return;
+    if (videoElement.readyState >= 1) seekToRequestedTime(videoElement);
+  }, [activeIndex, requestedSeekTime, videoSrc]);
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-black text-white" onWheel={onWheel} onTouchStart={(event) => setTouchStartY(event.touches[0].clientY)} onTouchEnd={onTouchEnd}>
-      <section className="relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col justify-between overflow-hidden bg-slate-950 shadow-2xl shadow-black md:my-0">
+      <section onClick={toggleVideoPlayback} className="relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col justify-between overflow-hidden bg-black shadow-2xl shadow-black md:my-0">
         {videoSrc ? (
           <video
             ref={videoElementRef}
             key={video.videoId + videoSrc}
             src={videoSrc}
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full bg-black object-contain"
             autoPlay
             muted
             loop
             playsInline
+            onLoadedMetadata={(event) => seekToRequestedTime(event.currentTarget)}
+            onPlay={() => setIsVideoPaused(false)}
+            onPause={() => setIsVideoPaused(true)}
             onError={() => setBrokenVideoIds((current) => new Set(current).add(video.videoId))}
           />
         ) : (
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_35%_25%,rgba(45,212,191,0.42),transparent_28%),radial-gradient(circle_at_70%_55%,rgba(251,146,60,0.34),transparent_32%),linear-gradient(160deg,#020617,#111827_50%,#0f172a)]" />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/10 to-black/75" />
+        {videoSrc && isVideoPaused ? (
+          <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center">
+            <span className="grid h-16 w-16 place-items-center rounded-full bg-black/42 text-white shadow-lg backdrop-blur-sm">
+              <Play className="ml-1 h-8 w-8 fill-current" strokeWidth={1.8} />
+            </span>
+          </div>
+        ) : null}
         <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between px-5 pt-5 text-sm font-medium text-white/78 drop-shadow-[0_2px_6px_rgba(0,0,0,0.55)]">
           <div className="flex flex-1 items-center justify-center gap-7 pl-8">
             <span>关注</span>
@@ -404,7 +471,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
             </div>
           </div>
         ) : <div className="flex-1" />}
-        <aside className="absolute bottom-24 right-4 z-20 flex flex-col items-center gap-5">
+        <aside onClick={stopVideoToggle} className="absolute bottom-24 right-4 z-20 flex flex-col items-center gap-5">
           <div className="h-11 w-11 overflow-hidden rounded-full border-2 border-white/90 bg-white/15 shadow-[0_2px_10px_rgba(0,0,0,0.45)]">
             <div className="h-full w-full bg-gradient-to-br from-white/60 via-teal-200/40 to-orange-200/45" />
           </div>
@@ -426,7 +493,10 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
             <button
               type="button"
               disabled={isGeneratingCard}
-              onClick={() => void buildCardFromVideo('short_press')}
+              onClick={(event) => {
+                event.stopPropagation();
+                void buildCardFromVideo('short_press');
+              }}
               className="mb-3 inline-flex max-w-[86%] items-center gap-2 rounded-full border border-white/35 bg-white/82 px-3 py-2 text-left text-xs font-semibold text-stone-900 shadow-lg shadow-black/18 backdrop-blur transition hover:bg-white disabled:opacity-70"
               aria-label={`${video.activityName} ${video.activityCta ?? '加入这一刻'}`}
             >
@@ -437,15 +507,15 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
           <p className="text-sm font-semibold">{video.authorName}</p>
           <p className="mt-2 max-w-[78%] text-sm leading-6 text-white/82">{video.videoDescription}</p>
         </section>
-        <footer className="absolute bottom-0 left-0 right-0 z-20 grid grid-cols-5 border-t border-white/12 bg-[rgba(18,18,18,0.82)] px-2 py-3 text-center text-xs text-white/82 shadow-[0_-10px_28px_rgba(15,23,42,0.18)] backdrop-blur-[14px]">
+        <footer onClick={stopVideoToggle} className="absolute bottom-0 left-0 right-0 z-20 grid grid-cols-5 border-t border-white/12 bg-[rgba(18,18,18,0.82)] px-2 py-3 text-center text-xs text-white/82 shadow-[0_-10px_28px_rgba(15,23,42,0.18)] backdrop-blur-[14px]">
           <button type="button" className="font-semibold text-white">首页</button>
           <button type="button">朋友</button>
           <button type="button" className="text-lg leading-none text-white">+</button>
           <button type="button">消息</button>
           <button type="button" onClick={onOpenProfile}>我</button>
         </footer>
-        <div className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-2">
-          {[0, 1, 2].map((index) => <button key={index} type="button" onClick={() => { setActiveCard(null); setDetailCard(null); setCardFeedback(''); setActiveIndex(index); }} className={'h-2 w-2 rounded-full ' + (activeIndex === index ? 'bg-white' : 'bg-white/35')} aria-label={`切换视频 ${index + 1}`} />)}
+        <div onClick={stopVideoToggle} className="absolute right-2 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-2">
+          {videos.map((item, index) => <button key={item.videoId || index} type="button" onClick={() => { setActiveCard(null); setDetailCard(null); setCardFeedback(''); setIsVideoPaused(false); setRequestedSeekTime(null); setActiveIndex(index); }} className={'h-2 w-2 rounded-full ' + (activeIndex === index ? 'bg-white' : 'bg-white/35')} aria-label={`切换视频 ${index + 1}`} />)}
         </div>
       </section>
       {isGeneratingCard ? (

@@ -10,6 +10,7 @@ import { ProfilePage } from './pages/ProfilePage';
 type PageId = 'demoFeed' | 'adminConfig' | 'internalLab' | 'creatorCenter' | 'profile' | 'myCards' | 'clipbook' | 'dresser';
 type PageParam = 'demo' | 'admin' | 'internal' | 'creator' | 'profile' | 'cards' | 'clipbook' | 'dresser';
 type TemplateParam = 'fps' | 'landscape' | 'blank';
+type NavigateOptions = { dev?: boolean; template?: TemplateParam; videoId?: string; time?: number };
 
 const pageParamToId: Record<PageParam, PageId> = {
   demo: 'demoFeed',
@@ -63,12 +64,16 @@ function readRoute() {
 export default function App() {
   const [route, setRoute] = useState(readRoute);
 
-  function navigate(page: PageId, options?: { dev?: boolean; template?: TemplateParam }) {
+  function navigate(page: PageId, options?: NavigateOptions) {
     const nextDev = options?.dev ?? route.dev;
     const params = new URLSearchParams();
     params.set('page', pageIdToParam[page]);
     if (nextDev) params.set('dev', '1');
     if (page === 'clipbook' && options?.template) params.set('template', options.template);
+    if (page === 'demoFeed' && options?.videoId) params.set('videoId', options.videoId);
+    if (page === 'demoFeed' && typeof options?.time === 'number' && Number.isFinite(options.time)) {
+      params.set('time', String(options.time));
+    }
     const nextUrl = `${window.location.pathname}?${params.toString()}`;
     window.history.pushState(null, '', nextUrl);
     setRoute({ page, dev: nextDev, templateId: page === 'clipbook' ? options?.template : undefined });

@@ -1,10 +1,11 @@
-import { X } from 'lucide-react';
+import { Edit3, Trash2, X } from 'lucide-react';
 import type { ChangeEvent, MouseEvent } from 'react';
 import { useEffect, useState } from 'react';
 import type { SegmentCard } from '../core/types';
 import type { Clipbook, ClipbookSlotPlacement } from '../core/clipbookStore';
 import {
   createClipbook,
+  deleteClipbook,
   getClipbooks,
   updateClipbook,
 } from '../core/clipbookStore';
@@ -20,7 +21,7 @@ type TemplateId = 'fps' | 'landscape' | 'blank';
 const SOURCE_BACKFLOW_HINT = '发布手账时会自动标注原作者和原视频，帮助来源视频获得回流。';
 
 interface SimplePageProps {
-  onNavigate: (page: NavigateTarget, options?: { dev?: boolean; template?: TemplateId }) => void;
+  onNavigate: (page: NavigateTarget, options?: { dev?: boolean; template?: TemplateId; videoId?: string; time?: number }) => void;
 }
 
 interface ClipbookPageProps extends SimplePageProps {
@@ -73,6 +74,7 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
   const [templateFeedback, setTemplateFeedback] = useState('');
   const [templateError, setTemplateError] = useState('');
   const [publishPreview, setPublishPreview] = useState<{ title: string; sourceCards: SegmentCard[] } | null>(null);
+  const [deleteTargetClipbook, setDeleteTargetClipbook] = useState<Clipbook | null>(null);
 
   const selectedTemplate = templates.find((item) => getTemplateId(item) === selectedTemplateId) ?? templates[0];
   const viewingClipbook = viewingClipbookId ? clipbooks.find((clipbook) => clipbook.clipbookId === viewingClipbookId) ?? null : null;
@@ -146,7 +148,34 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
     setSelectingSlotId(null);
     setFeedback('');
     setPublishPreview(null);
+    setDeleteTargetClipbook(null);
     setHomeFeedback(message ?? '');
+  }
+
+  function openSourceVideo(card: SegmentCard) {
+    const sourceUrl = getSourceVideoUrl(card);
+    const sourceVideoId = card.sourceVideoId || card.videoId;
+
+    if (sourceUrl && !isDemoSourceUrl(sourceUrl)) {
+      const openedWindow = window.open(sourceUrl, '_blank');
+      if (openedWindow) openedWindow.opener = null;
+      if (!openedWindow) setFeedback('原视频链接已准备，请允许浏览器打开新窗口。');
+      return;
+    }
+
+    if (sourceVideoId) {
+      onNavigate('demoFeed', { dev: false, videoId: sourceVideoId, time: card.segmentStart });
+      return;
+    }
+
+    setFeedback('当前为演示链接，已定位到来源视频占位。');
+  }
+
+  function confirmDeleteClipbook() {
+    if (!deleteTargetClipbook) return;
+    deleteClipbook(deleteTargetClipbook.clipbookId);
+    setDeleteTargetClipbook(null);
+    returnToHome('已删除手账。');
   }
 
   function placeCard(card: SegmentCard) {
@@ -288,6 +317,16 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
         title={viewingClipbook.title}
         subtitle={viewingClipbook.templateName}
         onBack={() => returnToHome()}
+        rightSlot={(
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => editClipbook(viewingClipbook)} aria-label="继续编辑" className="rounded-full bg-white p-2 text-stone-800 shadow-sm shadow-stone-200">
+              <Edit3 className="h-5 w-5" strokeWidth={1.9} />
+            </button>
+            <button type="button" onClick={() => setDeleteTargetClipbook(viewingClipbook)} aria-label="删除手账" className="rounded-full bg-white p-2 text-stone-800 shadow-sm shadow-stone-200">
+              <Trash2 className="h-5 w-5" strokeWidth={1.9} />
+            </button>
+          </div>
+        )}
       >
         <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
           <p className="text-xs font-medium text-stone-500">手账预览</p>
@@ -303,22 +342,19 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
           />
         </section>
 
-        <SourceVideoList sourceCards={detailSourceCards} onOpenSource={() => setFeedback('跳转原视频。')} />
+        <SourceVideoList sourceCards={detailSourceCards} onOpenSource={openSourceVideo} />
 
         <section className="grid gap-3">
-          <button type="button" onClick={() => setFeedback('已生成图片，后续可接入系统相册保存。')} className="rounded-full bg-stone-900 px-4 py-2.5 text-sm font-medium text-white">
-            保存到相册
-          </button>
           <div className="grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => setFeedback('分享手账功能已预留。')} className="rounded-full bg-white px-4 py-2.5 text-sm font-medium text-stone-800 shadow-sm shadow-stone-200">
+            <button type="button" onClick={() => setFeedback('已生成手账图片，后续可接入系统相册保存。')} className="rounded-full bg-white px-4 py-2.5 text-sm font-medium text-stone-800 shadow-sm shadow-stone-200">
+              保存到相册
+            </button>
+            <button type="button" onClick={() => setFeedback('已生成分享预览。')} className="rounded-full bg-white px-4 py-2.5 text-sm font-medium text-stone-800 shadow-sm shadow-stone-200">
               分享
             </button>
-            <button type="button" onClick={() => openPublishPreview(viewingClipbook.title, detailSourceCards)} className="rounded-full bg-emerald-100 px-4 py-2.5 text-sm font-medium text-emerald-800">
-              一键发布为视频
-            </button>
           </div>
-          <button type="button" onClick={() => editClipbook(viewingClipbook)} className="rounded-full bg-stone-100 px-4 py-2.5 text-sm font-medium text-stone-800">
-            继续编辑
+          <button type="button" onClick={() => openPublishPreview(viewingClipbook.title, detailSourceCards)} className="rounded-full bg-stone-900 px-4 py-2.5 text-sm font-medium text-white">
+            一键发布为视频
           </button>
           {feedback ? <p className="text-center text-sm text-emerald-700">{feedback}</p> : null}
         </section>
@@ -328,6 +364,12 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
             sourceCards={publishPreview.sourceCards}
             onCancel={() => setPublishPreview(null)}
             onConfirm={confirmPublishPreview}
+          />
+        ) : null}
+        {deleteTargetClipbook ? (
+          <DeleteClipbookModal
+            onCancel={() => setDeleteTargetClipbook(null)}
+            onConfirm={confirmDeleteClipbook}
           />
         ) : null}
       </UserSubPageShell>
@@ -628,7 +670,7 @@ function getClipbookCoverTraceStyle(templateId: TemplateId, index: number) {
   };
 }
 
-function SourceVideoList({ sourceCards, onOpenSource }: { sourceCards: SegmentCard[]; onOpenSource: () => void }) {
+function SourceVideoList({ sourceCards, onOpenSource }: { sourceCards: SegmentCard[]; onOpenSource: (card: SegmentCard) => void }) {
   return (
     <section className="rounded-[24px] bg-white p-4 shadow-sm shadow-stone-200">
       <h2 className="font-semibold">来源视频</h2>
@@ -644,7 +686,7 @@ function SourceVideoList({ sourceCards, onOpenSource }: { sourceCards: SegmentCa
                 </p>
                 <button
                   type="button"
-                  onClick={onOpenSource}
+                  onClick={() => onOpenSource(card)}
                   className="shrink-0 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-stone-700 shadow-sm shadow-stone-200"
                   aria-label={`查看原视频 ${getSourceVideoUrl(card)}`}
                 >
@@ -660,6 +702,32 @@ function SourceVideoList({ sourceCards, onOpenSource }: { sourceCards: SegmentCa
         </p>
       )}
     </section>
+  );
+}
+
+function DeleteClipbookModal({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end justify-center bg-stone-900/35 px-4 backdrop-blur-sm">
+      <section className="w-full max-w-[430px] rounded-t-[30px] bg-[#fffdf7] p-5 text-stone-900 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">删除这本手账？</h2>
+            <p className="mt-2 text-sm leading-6 text-stone-500">删除后将从“我的手账”中移除，不会删除原卡片。</p>
+          </div>
+          <button type="button" onClick={onCancel} aria-label="取消删除" className="rounded-full bg-stone-100 p-2 text-stone-700">
+            <X className="h-5 w-5" strokeWidth={1.9} />
+          </button>
+        </div>
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button type="button" onClick={onCancel} className="rounded-full bg-stone-100 px-4 py-2.5 text-sm font-medium text-stone-700">
+            取消
+          </button>
+          <button type="button" onClick={onConfirm} className="rounded-full bg-red-600 px-4 py-2.5 text-sm font-medium text-white">
+            删除
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -1008,6 +1076,15 @@ function getCardsFromSlotPlacements(slots: ClipbookSlotPlacement[], cards: Segme
     usedCardIds.add(slot.cardId);
     return [card];
   });
+}
+
+function isDemoSourceUrl(url: string) {
+  try {
+    const parsed = new URL(url, window.location.href);
+    return parsed.hostname === 'example.com' && parsed.pathname.startsWith('/clipcard/');
+  } catch {
+    return true;
+  }
 }
 
 function formatPublishDescription(sourceCards: SegmentCard[]) {
