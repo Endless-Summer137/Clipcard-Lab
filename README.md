@@ -65,7 +65,7 @@ Add `dev=1` to show the development navigation bar. `Ctrl+U` opens `?page=admin&
 - A light activity quick-preview card after tapping an activity capsule, with `加入活动手账`, share, and full-card actions.
 - A one-per-card personal reflection field in `CardDetailView`, editable and deletable by the user and persisted in `cardStore`.
 - Cover-style card thumbnails that use saved video-frame covers when available and fall back to soft light-card surfaces for low-information clips.
-- A saved card clipbook flow with a `我的手账` home, new-template entry, draft slot placement, `保存手账`, saved clipbook detail, source-video list, album/share placeholders, publish-preview modal, and disabled duplicate placement in the card picker.
+- A saved card clipbook flow with a `我的手账` home, template-style 9:16 clipbook covers, new-template entry, draft slot placement, `保存手账`, saved clipbook detail, source-video list, album/share placeholders, publish-preview modal, and disabled duplicate placement in the card picker.
 - Clipbook card selection reads the same `cardStore` source as the my-cards grid, so saved cards can be placed into any template slot.
 - Dev-only clipbook template image upload plus numeric `x/y/w/h` slot adjustment for configuring custom template layouts.
 - Uploaded clipbook template images render complete in the editor using their original aspect ratio, with slots anchored to the template image coordinate system.

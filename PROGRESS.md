@@ -69,6 +69,8 @@
 - Added source-backflow fields to generated and stored cards, including source author, source video id/title/url, and segment time normalization for existing demo cards.
 - Added a clear but quiet source-video area in `CardDetailView`, with original author, original video title, segment time, and a placeholder original-video jump action.
 - Added source-video lists to saved clipbook detail pages and replaced clipbook one-click video publishing placeholders with a publish-preview modal that auto-lists all source clips.
+- Fixed saved clipbook list covers so they render template-style 9:16 clipbook previews instead of using the first placed card as the cover.
+- Split saved clipbook display previews from editing canvases: list/detail display hides empty slot frames, while edit mode still shows dashed slots and plus markers.
 
 ## Validation
 
@@ -116,6 +118,8 @@
 - Source validation confirmed the right rail no longer renders a `保存这一刻` button, demo videos 1 and 2 carry activity metadata, demo video 3 has `activityEnabled: false`, generated cards receive `activityName`, and activity preview exposes `加入活动手账`.
 - `npm.cmd run build` completed successfully after adding source-backflow fields, card-detail source attribution, clipbook source lists, and the publish-preview modal.
 - Browser verification confirmed `CardDetailView` shows `@clipcard_food《深夜小店热汤》` with `00:08–00:13` and a source jump feedback, a saved clipbook detail shows the source list, and `一键发布为视频` opens a `发布活动手账视频` preview whose confirmation reports that source information will follow the video description.
+- `npm.cmd run build` completed successfully after separating saved clipbook covers from card thumbnails.
+- Browser verification confirmed the saved FPS clipbook list cover is a 9:16 template-style preview with no dashed slot frames, the saved detail preview has no empty dashed slots or plus buttons, and `继续编辑` returns to the dashed editable slot canvas.
 
 ## Current Repository Agreement
 

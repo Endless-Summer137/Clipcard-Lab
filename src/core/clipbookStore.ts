@@ -9,12 +9,13 @@ export interface Clipbook {
   templateId: string;
   templateName: string;
   coverImage?: string;
+  coverPreview?: string;
   slots: ClipbookSlotPlacement[];
   createdAt: number;
   updatedAt: number;
 }
 
-type ClipbookInput = Pick<Clipbook, 'title' | 'templateId' | 'templateName' | 'slots'> & Partial<Pick<Clipbook, 'coverImage'>>;
+type ClipbookInput = Pick<Clipbook, 'title' | 'templateId' | 'templateName' | 'slots'> & Partial<Pick<Clipbook, 'coverImage' | 'coverPreview'>>;
 
 const CLIPBOOK_STORE_KEY = 'clipcard_clipbooks';
 

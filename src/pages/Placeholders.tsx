@@ -187,7 +187,7 @@ export function ClipbookPage({ onNavigate, devMode = false, templateId }: Clipbo
       title,
       templateId: selectedTemplateId,
       templateName: getTemplateDisplayName(selectedTemplate),
-      coverImage: getClipbookCoverImage(selectedTemplate, draftSlots, cards),
+      coverImage: getTemplateBackgroundImage(selectedTemplate),
       slots: draftSlots,
     };
 
@@ -494,6 +494,7 @@ function ClipbookHome({
                   key={clipbook.clipbookId}
                   clipbook={clipbook}
                   template={template}
+                  cards={cards}
                   cardCount={getClipbookCardCount(clipbook, cards)}
                   onClick={() => onOpenClipbook(clipbook)}
                 />
@@ -529,27 +530,19 @@ function ClipbookHome({
 function ClipbookListCard({
   clipbook,
   template,
+  cards,
   cardCount,
   onClick,
 }: {
   clipbook: Clipbook;
   template: ClipbookTemplate;
+  cards: SegmentCard[];
   cardCount: number;
   onClick: () => void;
 }) {
   return (
     <button type="button" onClick={onClick} className="grid grid-cols-[96px_1fr] gap-3 rounded-3xl bg-[#fbf8f0] p-3 text-left shadow-sm shadow-stone-200">
-      <span className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-stone-100">
-        {clipbook.coverImage ? (
-          <img src={clipbook.coverImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        ) : (
-          <TemplateChoiceBackground templateId={getTemplateId(template)} />
-        )}
-        <span className="absolute inset-0 bg-gradient-to-t from-stone-950/50 via-transparent to-white/10" />
-        <span className="absolute bottom-2 left-2 right-2 text-xs font-semibold leading-4 text-white drop-shadow">
-          {clipbook.templateName}
-        </span>
-      </span>
+      <ClipbookCoverPreview clipbook={clipbook} template={template} cards={cards} />
       <span className="min-w-0 py-1">
         <span className="block line-clamp-2 text-base font-semibold leading-6 text-stone-900">{clipbook.title}</span>
         <span className="mt-2 block text-sm text-stone-500">{clipbook.templateName}</span>
@@ -558,6 +551,81 @@ function ClipbookListCard({
       </span>
     </button>
   );
+}
+
+function ClipbookCoverPreview({ clipbook, template, cards }: { clipbook: Clipbook; template: ClipbookTemplate; cards: SegmentCard[] }) {
+  const templateId = getTemplateId(template);
+  const backgroundImage = clipbook.coverPreview ?? getTemplateBackgroundImage(template);
+  const placedCards = getCardsFromSlotPlacements(clipbook.slots, cards).slice(0, 3);
+
+  return (
+    <span className="relative aspect-[9/16] w-24 shrink-0 overflow-hidden rounded-2xl bg-stone-100 shadow-inner" data-clipbook-cover="true" data-template-id={templateId}>
+      {backgroundImage ? (
+        <img src={backgroundImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <TemplateChoiceBackground templateId={templateId} />
+      )}
+      <span className={getClipbookCoverTextureClassName(templateId)} />
+      {placedCards.map((card, index) => (
+        <span
+          key={`${clipbook.clipbookId}-${card.cardId}`}
+          data-cover-trace="true"
+          className="absolute overflow-hidden rounded-lg bg-white/32 shadow-[0_6px_18px_rgba(15,23,42,0.18)] ring-1 ring-white/28 backdrop-blur-[1px]"
+          style={getClipbookCoverTraceStyle(templateId, index)}
+        >
+          {card.coverImage ? (
+            <img src={card.coverImage} alt="" className="h-full w-full object-cover opacity-70 saturate-[0.8]" />
+          ) : (
+            <span className="block h-full w-full bg-white/36" />
+          )}
+        </span>
+      ))}
+      <span className="absolute inset-0 bg-gradient-to-t from-stone-950/56 via-transparent to-white/10" />
+      <span className="absolute bottom-2 left-2 right-2 text-xs font-semibold leading-4 text-white drop-shadow">
+        {getTemplateDisplayName(template)}
+      </span>
+    </span>
+  );
+}
+
+function getClipbookCoverTextureClassName(templateId: TemplateId) {
+  if (templateId === 'fps') {
+    return 'absolute inset-0 bg-[linear-gradient(180deg,rgba(34,211,238,0.12),transparent_38%),radial-gradient(circle_at_72%_18%,rgba(125,211,252,0.18),transparent_24%)]';
+  }
+
+  if (templateId === 'landscape') {
+    return 'absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.26),transparent_42%),radial-gradient(circle_at_30%_76%,rgba(187,247,208,0.28),transparent_28%)]';
+  }
+
+  return 'absolute inset-0 bg-[linear-gradient(90deg,rgba(120,113,108,0.16),transparent_16%),linear-gradient(180deg,rgba(255,255,255,0.5),transparent_44%)]';
+}
+
+function getClipbookCoverTraceStyle(templateId: TemplateId, index: number) {
+  const layouts: Record<TemplateId, Array<{ left: string; top: string; width: string; height: string; rotate: string }>> = {
+    fps: [
+      { left: '16%', top: '20%', width: '54%', height: '20%', rotate: '-4deg' },
+      { left: '36%', top: '43%', width: '48%', height: '18%', rotate: '5deg' },
+      { left: '18%', top: '64%', width: '46%', height: '17%', rotate: '-2deg' },
+    ],
+    landscape: [
+      { left: '18%', top: '18%', width: '52%', height: '22%', rotate: '-3deg' },
+      { left: '34%', top: '45%', width: '48%', height: '19%', rotate: '4deg' },
+      { left: '16%', top: '68%', width: '44%', height: '16%', rotate: '-2deg' },
+    ],
+    blank: [
+      { left: '24%', top: '22%', width: '46%', height: '18%', rotate: '-2deg' },
+      { left: '34%', top: '47%', width: '44%', height: '17%', rotate: '3deg' },
+      { left: '22%', top: '68%', width: '42%', height: '15%', rotate: '-3deg' },
+    ],
+  };
+  const layout = layouts[templateId][index] ?? layouts[templateId][0];
+  return {
+    left: layout.left,
+    top: layout.top,
+    width: layout.width,
+    height: layout.height,
+    transform: `rotate(${layout.rotate})`,
+  };
 }
 
 function SourceVideoList({ sourceCards, onOpenSource }: { sourceCards: SegmentCard[]; onOpenSource: () => void }) {
@@ -739,6 +807,8 @@ function TemplateCanvas({
         ) : <BuiltInTemplateBackground template={template} />}
         {template.slots.map((slot) => {
           const card = getCardInSlot(getSlotId(slot));
+          if (readOnly && !card) return null;
+
           return (
             <div
               key={getSlotId(slot)}
@@ -753,8 +823,10 @@ function TemplateCanvas({
               role={readOnly ? undefined : 'button'}
               tabIndex={readOnly ? undefined : 0}
               className={[
-                'group absolute rounded-2xl border-2 border-dashed border-white/85 bg-white/24 p-1 shadow-sm backdrop-blur-[1px]',
-                readOnly ? '' : 'transition hover:border-emerald-300 hover:bg-emerald-50/55 active:border-emerald-300 active:bg-emerald-50/55',
+                'group absolute rounded-2xl p-1 shadow-sm',
+                readOnly
+                  ? 'bg-white/18'
+                  : 'border-2 border-dashed border-white/85 bg-white/24 backdrop-blur-[1px] transition hover:border-emerald-300 hover:bg-emerald-50/55 active:border-emerald-300 active:bg-emerald-50/55',
               ].join(' ')}
               style={{ left: `${slot.x}%`, top: `${slot.y}%`, width: `${slot.w}%`, height: `${slot.h}%` }}
             >
@@ -921,12 +993,6 @@ function buildDraftSlots(template: ClipbookTemplate, clipbook?: Clipbook): Clipb
       cardId: savedSlot?.cardId ?? null,
     };
   });
-}
-
-function getClipbookCoverImage(template: ClipbookTemplate, slots: ClipbookSlotPlacement[], cards: SegmentCard[]) {
-  const firstCardId = slots.find((slot) => slot.cardId)?.cardId;
-  const firstCard = firstCardId ? cards.find((card) => card.cardId === firstCardId) : undefined;
-  return firstCard?.coverImage ?? getTemplateBackgroundImage(template);
 }
 
 function getClipbookCardCount(clipbook: Clipbook, cards: SegmentCard[]) {
