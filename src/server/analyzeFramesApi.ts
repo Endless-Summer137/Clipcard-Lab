@@ -59,12 +59,12 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
         todayCallCount: realCallCount,
         fallback: true,
         recentKeyframes: input.keyframes.map(toDebugKeyframe),
-        error: `缺少 ${provider} API key。`,
+        error: 'missing_api_key',
       };
       return {
         ok: false,
         provider,
-        error: `缺少 ${provider} API key。`,
+        error: 'missing_api_key',
         fallback: true,
         todayCallCount: realCallCount,
       };

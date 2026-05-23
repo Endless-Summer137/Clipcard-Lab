@@ -8,7 +8,7 @@ import { analyzeFrames as analyzeWithZhipu } from './zhipu';
 export function getVisionProvider(env: ServerEnv): VisionProvider {
   const provider = env.VISION_PROVIDER?.trim().toLowerCase();
   if (provider === 'zhipu' || provider === 'aliyun' || provider === 'openai' || provider === 'mock') return provider;
-  return 'mock';
+  return 'zhipu';
 }
 
 export function hasProviderKey(provider: VisionProvider, env: ServerEnv) {

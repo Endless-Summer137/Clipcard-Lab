@@ -68,7 +68,7 @@ export function InternalLab() {
         if (active && status) setVisionStatus(status);
       })
       .catch(() => {
-        if (active) setVisionStatus({ provider: 'mock', fallback: true, error: '无法读取视觉分析后端状态。' });
+        if (active) setVisionStatus({ configuredProvider: 'zhipu', provider: 'zhipu', fallback: true, error: '无法读取视觉分析后端状态。' });
       });
 
     return () => {
@@ -129,7 +129,7 @@ export function InternalLab() {
           <section className="rounded-lg border border-white/10 bg-white/[0.03] p-4 lg:col-span-2">
             <h2 className="font-semibold">visionAnalysis 后端状态</h2>
             <div className="mt-3 grid gap-2 text-sm sm:grid-cols-4">
-              <Metric label="VISION_PROVIDER" value={visionStatus?.configuredProvider ?? visionStatus?.provider ?? 'mock'} />
+              <Metric label="VISION_PROVIDER" value={visionStatus?.configuredProvider ?? visionStatus?.provider ?? 'zhipu'} />
               <Metric label="actual provider" value={visionStatus?.provider ?? latestFrameCard?.analysisSource ?? 'unknown'} />
               <Metric label="today calls" value={String(visionStatus?.todayCallCount ?? 0)} />
               <Metric label="fallback" value={String(Boolean(visionStatus?.fallback ?? latestFrameCard?.analysisSource === 'rule_fallback'))} />
