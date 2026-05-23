@@ -86,7 +86,6 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
   const [brokenVideoIds, setBrokenVideoIds] = useState<Set<string>>(() => new Set());
   const videoElementRef = useRef<HTMLVideoElement | null>(null);
   const longPressTimerRef = useRef<number | null>(null);
-  const previewSeekFrameRef = useRef<number | null>(null);
   const didLongPressRef = useRef(false);
   const wasPlayingBeforeSegmentModeRef = useRef(false);
 
@@ -144,7 +143,6 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
 
   function switchVideo(direction: 1 | -1) {
     const videoCount = videos.length || 1;
-    clearPreviewSeekFrame();
     setActiveCard(null);
     setDetailCard(null);
     setCardFeedback('');
@@ -159,13 +157,6 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
     if (longPressTimerRef.current !== null) {
       window.clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
-    }
-  }
-
-  function clearPreviewSeekFrame() {
-    if (previewSeekFrameRef.current !== null) {
-      window.cancelAnimationFrame(previewSeekFrameRef.current);
-      previewSeekFrameRef.current = null;
     }
   }
 
@@ -228,7 +219,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
     videoElement?.pause();
     setIsVideoPaused(true);
     setSegmentSelection(buildDefaultSelection(triggerTime));
-    setSegmentPreview(null);
+    previewSeek(triggerTime, 'start');
     setActiveCard(null);
     setDetailCard(null);
     setCardFeedback('');
@@ -242,58 +233,39 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
   }
 
   function cancelSegmentMode() {
-    clearPreviewSeekFrame();
     setSegmentPreview(null);
     setSegmentSelection(null);
     restoreSegmentModePlayback();
   }
 
-  function previewVideoFrame(time: number) {
+  function previewSeek(time: number, kind: 'start' | 'end') {
     const duration = getVideoDuration();
     const targetTime = Math.max(0, Math.min(time, duration));
-    clearPreviewSeekFrame();
-    previewSeekFrameRef.current = window.requestAnimationFrame(() => {
-      const videoElement = videoElementRef.current;
-      if (!videoElement) return;
 
-      try {
-        videoElement.pause();
-        videoElement.currentTime = targetTime;
-        setIsVideoPaused(true);
-      } finally {
-        previewSeekFrameRef.current = null;
-      }
-    });
+    const videoElement = videoElementRef.current;
+    if (videoElement) {
+      videoElement.pause();
+      videoElement.currentTime = targetTime;
+      setIsVideoPaused(true);
+    }
+
+    setSegmentPreview({ kind, time: targetTime });
   }
 
   function updateSegmentStart(value: number) {
-    let previewTime: number | null = null;
-    setSegmentSelection((current) => {
-      if (!current) return current;
-      const maxStart = Math.max(0, current.segmentEnd - MIN_SEGMENT_DURATION);
-      const nextStart = Math.max(0, Math.min(value, maxStart));
-      previewTime = nextStart;
-      return { ...current, segmentStart: nextStart };
-    });
-    if (previewTime !== null) {
-      setSegmentPreview({ kind: 'start', time: previewTime });
-      previewVideoFrame(previewTime);
-    }
+    if (!segmentSelection) return;
+    const maxStart = Math.max(0, segmentSelection.segmentEnd - MIN_SEGMENT_DURATION);
+    const nextStart = Math.max(0, Math.min(value, maxStart));
+    setSegmentSelection({ ...segmentSelection, segmentStart: nextStart });
+    previewSeek(nextStart, 'start');
   }
 
   function updateSegmentEnd(value: number) {
-    let previewTime: number | null = null;
-    setSegmentSelection((current) => {
-      if (!current) return current;
-      const minEnd = Math.min(current.duration, current.segmentStart + MIN_SEGMENT_DURATION);
-      const nextEnd = Math.min(current.duration, Math.max(value, minEnd));
-      previewTime = nextEnd;
-      return { ...current, segmentEnd: nextEnd };
-    });
-    if (previewTime !== null) {
-      setSegmentPreview({ kind: 'end', time: previewTime });
-      previewVideoFrame(previewTime);
-    }
+    if (!segmentSelection) return;
+    const minEnd = Math.min(segmentSelection.duration, segmentSelection.segmentStart + MIN_SEGMENT_DURATION);
+    const nextEnd = Math.min(segmentSelection.duration, Math.max(value, minEnd));
+    setSegmentSelection({ ...segmentSelection, segmentEnd: nextEnd });
+    previewSeek(nextEnd, 'end');
   }
 
   function drawCoverText(context: CanvasRenderingContext2D, text: string, x: number, y: number, maxWidth: number) {
@@ -671,7 +643,6 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
 
   function confirmSegmentCollection() {
     if (!segmentSelection) return;
-    clearPreviewSeekFrame();
     const selection = {
       segmentStart: segmentSelection.segmentStart,
       segmentEnd: segmentSelection.segmentEnd,
@@ -703,7 +674,6 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
 
   useEffect(() => () => {
     clearLongPressTimer();
-    clearPreviewSeekFrame();
   }, []);
 
   return (
@@ -799,6 +769,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
           <section
             onClick={stopVideoToggle}
             onPointerDown={(event) => event.stopPropagation()}
+            onPointerUp={(event) => event.stopPropagation()}
             className="absolute inset-x-3 bottom-16 z-30 rounded-2xl border border-white/18 bg-black/68 p-4 text-white shadow-2xl backdrop-blur-md"
           >
             <div className="flex items-start justify-between gap-3">
@@ -825,7 +796,11 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
                   max={segmentSelection.duration}
                   step={0.1}
                   value={segmentSelection.segmentStart}
+                  onInput={(event) => updateSegmentStart(Number(event.currentTarget.value))}
                   onChange={(event) => updateSegmentStart(Number(event.target.value))}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onPointerUp={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
                   className="mt-2 w-full accent-white"
                 />
               </label>
@@ -837,16 +812,20 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
                   max={segmentSelection.duration}
                   step={0.1}
                   value={segmentSelection.segmentEnd}
+                  onInput={(event) => updateSegmentEnd(Number(event.currentTarget.value))}
                   onChange={(event) => updateSegmentEnd(Number(event.target.value))}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onPointerUp={(event) => event.stopPropagation()}
+                  onClick={(event) => event.stopPropagation()}
                   className="mt-2 w-full accent-white"
                 />
               </label>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <button type="button" onClick={cancelSegmentMode} className="rounded-full bg-white/12 px-4 py-2.5 text-sm font-medium text-white">
+              <button type="button" onClick={(event) => { event.stopPropagation(); cancelSegmentMode(); }} className="rounded-full bg-white/12 px-4 py-2.5 text-sm font-medium text-white">
                 取消
               </button>
-              <button type="button" onClick={confirmSegmentCollection} className="rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-stone-950">
+              <button type="button" onClick={(event) => { event.stopPropagation(); confirmSegmentCollection(); }} className="rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-stone-950">
                 确认收集
               </button>
             </div>
