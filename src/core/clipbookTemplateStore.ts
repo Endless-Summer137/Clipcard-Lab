@@ -1,3 +1,5 @@
+import { DEMO_TEMPLATES } from '../demo/defaultDemoData';
+
 export interface ClipbookSlot {
   id: string;
   slotId?: string;
@@ -29,64 +31,33 @@ export interface ClipbookTemplate {
 const TEMPLATE_KEY = 'clipcard_clipbook_templates';
 const LEGACY_TEMPLATE_KEYS = ['clipcard.clipbookTemplates', 'clipcard-lab-clipbook-templates-v1'];
 
-export const defaultClipbookTemplates: ClipbookTemplate[] = [
-  {
-    id: 'fps',
-    templateId: 'fps',
-    name: 'FPS 游戏风格模板',
-    description: '深色背景、蓝紫/青色霓虹线条，一页可放 3 张卡片。',
-    type: 'fps',
+function toInternalTemplateId(templateId: string) {
+  return templateId === 'scenery' ? 'landscape' : templateId;
+}
+
+function toDefaultClipbookTemplate(template: (typeof DEMO_TEMPLATES)[number]): ClipbookTemplate {
+  const templateId = toInternalTemplateId(template.templateId);
+  const type = templateId === 'landscape' ? 'landscape' : templateId === 'blank' ? 'blank' : 'fps';
+
+  return {
+    id: templateId,
+    templateId,
+    name: template.name,
+    description: template.description,
+    type,
+    image: template.backgroundImage,
+    backgroundImage: template.backgroundImage,
     backgroundImageSource: 'default',
-    imageNaturalWidth: 1600,
-    imageNaturalHeight: 900,
-    aspectRatio: 16 / 9,
-    orientation: 'landscape',
-    updatedAt: 0,
-    slots: [
-      { id: 'slot-1', slotId: 'slot-1', x: 7, y: 6, w: 26, h: 31, label: '高光 1' },
-      { id: 'slot-2', slotId: 'slot-2', x: 37, y: 6, w: 26, h: 31, label: '高光 2' },
-      { id: 'slot-3', slotId: 'slot-3', x: 67, y: 6, w: 26, h: 31, label: '高光 3' },
-    ],
-  },
-  {
-    id: 'landscape',
-    templateId: 'landscape',
-    name: '风景模板',
-    description: '浅绿、雾蓝、奶白，一页可放 3–4 张卡片。',
-    type: 'landscape',
-    backgroundImageSource: 'default',
-    imageNaturalWidth: 1200,
-    imageNaturalHeight: 1500,
-    aspectRatio: 4 / 5,
+    imageNaturalWidth: 1080,
+    imageNaturalHeight: 1920,
+    aspectRatio: 9 / 16,
     orientation: 'portrait',
     updatedAt: 0,
-    slots: [
-      { id: 'slot-1', slotId: 'slot-1', x: 8, y: 12, w: 40, h: 28, label: '灵感 1' },
-      { id: 'slot-2', slotId: 'slot-2', x: 52, y: 12, w: 40, h: 28, label: '灵感 2' },
-      { id: 'slot-3', slotId: 'slot-3', x: 8, y: 52, w: 40, h: 30, label: '灵感 3' },
-      { id: 'slot-4', slotId: 'slot-4', x: 52, y: 52, w: 40, h: 30, label: '灵感 4' },
-    ],
-  },
-  {
-    id: 'blank',
-    templateId: 'blank',
-    name: '空白书模板',
-    description: '米白纸张和轻微书脊感，可输入书名。',
-    type: 'blank',
-    backgroundImageSource: 'default',
-    imageNaturalWidth: 1200,
-    imageNaturalHeight: 1500,
-    aspectRatio: 4 / 5,
-    orientation: 'portrait',
-    updatedAt: 0,
-    slots: [
-      { id: 'slot-1', slotId: 'slot-1', x: 8, y: 14, w: 40, h: 26, label: '页面 1' },
-      { id: 'slot-2', slotId: 'slot-2', x: 52, y: 14, w: 40, h: 26, label: '页面 2' },
-      { id: 'slot-3', slotId: 'slot-3', x: 8, y: 52, w: 40, h: 30, label: '页面 3' },
-      { id: 'slot-4', slotId: 'slot-4', x: 52, y: 52, w: 40, h: 30, label: '页面 4' },
-    ],
-  },
-];
+    slots: template.slots,
+  };
+}
+
+export const defaultClipbookTemplates: ClipbookTemplate[] = DEMO_TEMPLATES.map(toDefaultClipbookTemplate);
 
 const legacyDefaultSlots: Record<string, ClipbookSlot[]> = {
   fps: [
@@ -146,7 +117,7 @@ function normalizeTemplate(template: ClipbookTemplate): ClipbookTemplate {
     description: template.description ?? '',
     image: backgroundImage,
     backgroundImage,
-    backgroundImageSource: backgroundImage ? 'uploaded' : (template.backgroundImageSource ?? 'default'),
+    backgroundImageSource: template.backgroundImageSource ?? (backgroundImage ? 'uploaded' : 'default'),
     slots: template.slots.map(normalizeSlot),
     updatedAt: template.updatedAt ?? 0,
   };

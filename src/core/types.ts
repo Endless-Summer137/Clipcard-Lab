@@ -306,6 +306,7 @@ export interface DemoVideoInput {
   featuredPersonOrId?: string;
   uncertainties?: string | string[];
   adCandidate: string;
+  assetUrl?: string;
   videoDataUrl?: string;
   videoBlobKey?: string;
   videoFileName?: string;

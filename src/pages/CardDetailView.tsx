@@ -33,9 +33,10 @@ export function getVideoSourceName(card: SegmentCard) {
   if (card.sourceVideoTitle) return card.sourceVideoTitle;
 
   const map: Record<string, string> = {
-    demo_food_001: '深夜小店热汤',
+    demo_food_001: '热锅上的烟火气',
     demo_game_001: 'm0NESY 2025 超神高光回顾',
-    demo_travel_001: '城市转角风景',
+    demo_city_001: '城市航拍与天际线',
+    demo_travel_001: '城市航拍与天际线',
   };
   return map[card.videoId] ?? '演示视频片段';
 }
@@ -47,6 +48,7 @@ export function getSourceAuthor(card: SegmentCard) {
   const map: Record<string, string> = {
     demo_food_001: '@clipcard_food',
     demo_game_001: '@ZqLjy20231124（仅做演示用）',
+    demo_city_001: '@clipcard_travel',
     demo_travel_001: '@clipcard_travel',
   };
   return map[card.videoId] ?? '@clipcard_demo';

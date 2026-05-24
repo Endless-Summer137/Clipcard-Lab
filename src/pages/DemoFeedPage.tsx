@@ -92,7 +92,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
   const wasPlayingBeforeCollectRef = useRef(false);
 
   const video = videos[activeIndex] ?? defaultDemoVideos[0];
-  const videoSrc = brokenVideoIds.has(video.videoId) ? undefined : videoObjectUrls[video.videoId] ?? video.videoDataUrl;
+  const videoSrc = brokenVideoIds.has(video.videoId) ? undefined : videoObjectUrls[video.videoId] ?? video.videoDataUrl ?? video.assetUrl;
 
   useEffect(() => {
     const nextVideos = readDemoConfig();
@@ -654,6 +654,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
 
   function normalizeTargetTemplate(value?: string): 'fps' | 'landscape' | 'blank' {
     if (value === 'fps' || value === 'landscape' || value === 'blank') return value;
+    if (value === 'scenery') return 'landscape';
     return 'blank';
   }
 

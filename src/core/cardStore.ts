@@ -12,9 +12,10 @@ const SEED_CARD_IDS = ['demo_card_food', 'demo_card_game', 'demo_card_travel'];
 
 function getFallbackVideoTitle(videoId: string) {
   const map: Record<string, string> = {
-    demo_food_001: '深夜小店热汤',
+    demo_food_001: '热锅上的烟火气',
     demo_game_001: 'm0NESY 2025 超神高光回顾',
-    demo_travel_001: '城市转角风景',
+    demo_city_001: '城市航拍与天际线',
+    demo_travel_001: '城市航拍与天际线',
   };
   return map[videoId] ?? '演示视频片段';
 }
@@ -23,6 +24,7 @@ function getFallbackSourceAuthor(videoId: string) {
   const map: Record<string, string> = {
     demo_food_001: '@clipcard_food',
     demo_game_001: '@ZqLjy20231124（仅做演示用）',
+    demo_city_001: '@clipcard_travel',
     demo_travel_001: '@clipcard_travel',
   };
   return map[videoId] ?? '@clipcard_demo';
@@ -32,7 +34,8 @@ function getFallbackSourceUrl(videoId: string) {
   const map: Record<string, string> = {
     demo_food_001: 'https://example.com/clipcard/demo_food_001',
     demo_game_001: 'https://example.com/clipcard/demo_game_001',
-    demo_travel_001: 'https://example.com/clipcard/demo_travel_001',
+    demo_city_001: 'https://example.com/clipcard/demo_city_001',
+    demo_travel_001: 'https://example.com/clipcard/demo_city_001',
   };
   return map[videoId] ?? `https://example.com/clipcard/${videoId || 'demo'}`;
 }

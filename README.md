@@ -49,6 +49,26 @@ Page responsibilities are intentionally split:
 
 Add `dev=1` to show the development navigation bar. `Ctrl+Shift+U` opens `?page=admin&dev=1`; `Esc` returns from admin config to `?page=demo&dev=1`.
 
+## Default Demo Assets
+
+Default demo data is committed in `src/demo/defaultDemoData.ts`, and the media files live under `public/demo-assets`.
+
+- Videos:
+  - `public/demo-assets/videos/food.mp4`: food activity video for `#分享你的美食搭子`.
+  - `public/demo-assets/videos/game.mp4`: game highlight activity video for `#游戏高能操作时刻`.
+  - `public/demo-assets/videos/city.mp4`: non-activity city/travel video, intentionally without a ClipCard activity capsule.
+- Templates:
+  - `public/demo-assets/templates/fps-template.png`: FPS 高光册.
+  - `public/demo-assets/templates/scenery-template.png`: 风景灵感册.
+  - `public/demo-assets/templates/blank-book-template.png`: 空白书.
+- Asset license notes live in `public/demo-assets/ASSET_LICENSE.md`.
+
+The app prefers locally uploaded hidden-config videos stored in IndexedDB when `videoBlobKey` exists. If no local upload exists, it falls back to the committed `public/demo-assets` files. Clearing localStorage and IndexedDB still leaves a working demo because the repository defaults are enough to run the three-video feed and the three template previews.
+
+Hidden config remains available at `/?page=admin&dev=1` or `Ctrl+Shift+U`. It can edit the demo metadata and upload replacement local videos for the current browser session/storage. To reset the demo metadata, use the admin page clear action or run `localStorage.removeItem('clipcard-lab-demo-feed-inputs-v1')` in the browser console; to reset uploaded videos, clear the browser IndexedDB database named `clipcard_video_blobs`.
+
+Vision API keys are optional. Without `.env` or provider keys, `/api/analyze-frames` falls back to local/mock analysis so the prototype remains demoable. Do not commit `.env`, API keys, tokens, or private account credentials.
+
 ## What It Tests
 
 - Sample clip scenarios: 美食探店, 游戏高光, 旅行风景, 低信息片段.
