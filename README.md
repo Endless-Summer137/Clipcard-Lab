@@ -67,7 +67,7 @@ The app prefers locally uploaded hidden-config videos stored in IndexedDB when `
 
 Hidden config remains available at `/?page=admin&dev=1` or `Ctrl+Shift+U`. It can edit the demo metadata and upload replacement local videos for the current browser session/storage. To reset the demo metadata, use the admin page clear action or run `localStorage.removeItem('clipcard-lab-demo-feed-inputs-v1')` in the browser console; to reset uploaded videos, clear the browser IndexedDB database named `clipcard_video_blobs`.
 
-Vision API keys are optional. Without `.env` or provider keys, `/api/analyze-frames` falls back to local/mock analysis so the prototype remains demoable. Do not commit `.env`, API keys, tokens, or private account credentials.
+Vision API keys are optional. The project intentionally does not upload or display `.env`; this is not an unfinished setup. `.env` is ignored so API keys stay local. The intended vision provider is Zhipu BigModel with `VISION_PROVIDER=zhipu`, primary model `ZHIPU_MODEL=glm-4.6v-flash`, and fallback model `ZHIPU_FALLBACK_MODELS=glm-4v-flash` when the primary model is unavailable, overloaded, or times out. Without `.env` or provider keys, `/api/analyze-frames` falls back to local/mock analysis so the prototype remains demoable. Do not commit `.env`, API keys, tokens, or private account credentials.
 
 ## What It Tests
 

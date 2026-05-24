@@ -58,7 +58,7 @@ export const DEMO_VIDEOS: DemoVideoAssetConfig[] = [
     videoTitle: 'm0NESY 2025 超神高光回顾',
     authorName: '@ZqLjy20231124（仅做演示用）',
     sourceVideoUrl: 'https://example.com/clipcard/demo_game_001',
-    videoDescription: '“我大尼之神啊！搓江湖下饭锅” m0NESY 荣获 2025 年度 TOP4！年度超神操作精选！',
+    videoDescription: '“扶大厦之将倾！挽狂澜之既倒” m0NESY 荣获 2025 年度 TOP4！年度超神操作精选！',
     tags: ['CS2', 'FPS', 'm0NESY', 'AWP', '狙击', '游戏高光', '职业选手', '高光混剪', '游戏高能操作时刻'],
     defaultSegmentStart: 21,
     defaultSegmentEnd: 28,

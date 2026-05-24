@@ -11,7 +11,7 @@ export interface DemoVideoConfig extends DemoVideoInput {
 }
 
 export const DEMO_CONFIG_KEY = 'clipcard-lab-demo-feed-inputs-v1';
-const DEMO_CONFIG_VERSION = 2;
+const DEMO_CONFIG_VERSION = 3;
 
 let demoConfigNotice = '';
 
