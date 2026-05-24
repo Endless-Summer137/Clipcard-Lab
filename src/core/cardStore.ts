@@ -1,10 +1,13 @@
 import type { SegmentCard } from './types';
 import { removeCardFromClipbooks } from './clipbookStore';
+import { removeClipbookPlacementsByCardId } from './clipbookPlacementStore';
 
 const CARD_STORE_KEY = 'clipcard.cards';
 const LEGACY_CARD_STORE_KEYS = ['clipcard-lab-cards-v1'];
-const SEED_INITIALIZED_KEY = 'clipcard.seedDemoCardsInitialized';
-const DELETED_SEED_CARD_IDS_KEY = 'clipcard.deletedSeedCardIds';
+const SEED_INITIALIZED_KEY = 'clipcard_seed_cards_initialized';
+const LEGACY_SEED_INITIALIZED_KEYS = ['clipcard.seedDemoCardsInitialized'];
+const DELETED_SEED_CARD_IDS_KEY = 'clipcard_deleted_seed_card_ids';
+const LEGACY_DELETED_SEED_CARD_IDS_KEYS = ['clipcard.deletedSeedCardIds'];
 const SEED_CARD_IDS = ['demo_card_food', 'demo_card_game', 'demo_card_travel'];
 
 function getFallbackVideoTitle(videoId: string) {
@@ -51,15 +54,42 @@ function migrateDemoGameSeedCard(card: SegmentCard): SegmentCard {
   };
 }
 
-function normalizeCard(card: SegmentCard): SegmentCard {
+function getCardTime(card: SegmentCard) {
+  const reflectionTime = card.personalReflection?.updatedAt ? Date.parse(card.personalReflection.updatedAt) : 0;
+  const createdTime = card.createdAt ? Date.parse(card.createdAt) : 0;
+  return Math.max(reflectionTime || 0, createdTime || 0);
+}
+
+function inferSourceType(card: SegmentCard) {
+  if (card.sourceType) return card.sourceType;
+  if (SEED_CARD_IDS.includes(card.cardId)) return 'seed_demo';
+  if (card.cardId.startsWith('card_')) return 'user_generated';
+  return 'fallback';
+}
+
+function buildStableCardId(card: Partial<SegmentCard>, index: number) {
+  const parts = [
+    'legacy',
+    card.videoId || 'unknown',
+    String(card.segmentStart ?? 0),
+    String(card.segmentEnd ?? 0),
+    card.createdAt || card.title || String(index),
+  ];
+  return parts.join('_').replace(/[^a-zA-Z0-9_-]+/g, '_').slice(0, 96);
+}
+
+function normalizeCard(card: SegmentCard, index = 0): SegmentCard {
+  const cardId = card.cardId?.trim() || buildStableCardId(card, index);
   return migrateDemoGameSeedCard({
     ...card,
+    cardId,
     createdAt: card.createdAt ?? new Date().toISOString(),
     segmentSource: card.segmentSource ?? 'default_demo_segment',
     sourceVideoTitle: card.sourceVideoTitle ?? getFallbackVideoTitle(card.videoId),
     sourceAuthor: card.sourceAuthor ?? getFallbackSourceAuthor(card.videoId),
     sourceVideoId: card.sourceVideoId ?? card.videoId,
     sourceVideoUrl: card.sourceVideoUrl ?? getFallbackSourceUrl(card.videoId),
+    sourceType: inferSourceType({ ...card, cardId }),
     coverFrameTime: card.coverFrameTime ?? card.coverFrame,
     coverSource: card.coverSource ?? (card.coverImage ? 'demo_placeholder' : 'none'),
     keyframes: Array.isArray(card.keyframes)
@@ -76,28 +106,57 @@ function normalizeCard(card: SegmentCard): SegmentCard {
   });
 }
 
-function readCards(): SegmentCard[] {
-  try {
-    const raw = localStorage.getItem(CARD_STORE_KEY);
-    const currentCards = raw ? (JSON.parse(raw) as SegmentCard[]).map(normalizeCard) : [];
-    const mergedCards = [...currentCards];
-    let shouldWrite = raw ? JSON.stringify(currentCards) !== raw : false;
+function dedupeCards(cards: SegmentCard[]) {
+  const byId = new Map<string, SegmentCard>();
+  let hadDuplicates = false;
 
-    for (const legacyKey of LEGACY_CARD_STORE_KEYS) {
-      const legacyRaw = localStorage.getItem(legacyKey);
-      if (legacyRaw) {
-        const legacyCards = (JSON.parse(legacyRaw) as SegmentCard[]).map(normalizeCard);
-        legacyCards.forEach((legacyCard) => {
-          if (!mergedCards.some((card) => card.cardId === legacyCard.cardId)) {
-            mergedCards.push(legacyCard);
-            shouldWrite = true;
-          }
-        });
-      }
+  cards.forEach((card) => {
+    const existing = byId.get(card.cardId);
+    if (!existing) {
+      byId.set(card.cardId, card);
+      return;
     }
 
-    if (shouldWrite) writeCards(mergedCards);
-    return mergedCards;
+    hadDuplicates = true;
+    console.warn(`[cardStore] duplicate cardId "${card.cardId}" detected; keeping the newer card.`);
+    if (getCardTime(card) > getCardTime(existing)) byId.set(card.cardId, card);
+  });
+
+  return { cards: Array.from(byId.values()), hadDuplicates };
+}
+
+function readCardsFromKey(key: string) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((card, index) => normalizeCard(card as SegmentCard, index));
+  } catch {
+    return [];
+  }
+}
+
+function readCards(): SegmentCard[] {
+  try {
+    const currentCards = readCardsFromKey(CARD_STORE_KEY);
+    const mergedCards = [...currentCards];
+    let shouldWrite = false;
+
+    for (const legacyKey of LEGACY_CARD_STORE_KEYS) {
+      const legacyCards = readCardsFromKey(legacyKey);
+      if (!legacyCards.length) continue;
+      legacyCards.forEach((legacyCard) => mergedCards.push(legacyCard));
+      localStorage.removeItem(legacyKey);
+      shouldWrite = true;
+    }
+
+    const deletedSeedCardIds = readDeletedSeedCardIds();
+    const activeCards = mergedCards.filter((card) => !(SEED_CARD_IDS.includes(card.cardId) && deletedSeedCardIds.has(card.cardId)));
+    const deduped = dedupeCards(activeCards);
+    shouldWrite = shouldWrite || deduped.hadDuplicates || JSON.stringify(deduped.cards) !== JSON.stringify(currentCards);
+    if (shouldWrite) writeCards(deduped.cards);
+    return deduped.cards;
   } catch {
     return [];
   }
@@ -109,8 +168,15 @@ function writeCards(cards: SegmentCard[]) {
 
 function readDeletedSeedCardIds() {
   try {
-    const raw = localStorage.getItem(DELETED_SEED_CARD_IDS_KEY);
-    return new Set(raw ? JSON.parse(raw) as string[] : []);
+    const deletedIds = new Set<string>();
+    const keys = [DELETED_SEED_CARD_IDS_KEY, ...LEGACY_DELETED_SEED_CARD_IDS_KEYS];
+    keys.forEach((key) => {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) parsed.forEach((id) => deletedIds.add(String(id)));
+    });
+    return deletedIds;
   } catch {
     return new Set<string>();
   }
@@ -121,6 +187,29 @@ function markSeedCardDeleted(cardId: string) {
   const deletedIds = readDeletedSeedCardIds();
   deletedIds.add(cardId);
   localStorage.setItem(DELETED_SEED_CARD_IDS_KEY, JSON.stringify(Array.from(deletedIds)));
+}
+
+function removeCardFromLegacyStores(cardId: string) {
+  for (const key of LEGACY_CARD_STORE_KEYS) {
+    const cards = readCardsFromKey(key);
+    if (!cards.length) continue;
+    const nextCards = cards.filter((card) => card.cardId !== cardId);
+    if (nextCards.length === cards.length) continue;
+    if (nextCards.length) localStorage.setItem(key, JSON.stringify(nextCards));
+    else localStorage.removeItem(key);
+  }
+}
+
+function hasSeedInitialized() {
+  if (localStorage.getItem(SEED_INITIALIZED_KEY) === 'true') return true;
+  const hasLegacyInitialized = LEGACY_SEED_INITIALIZED_KEYS.some((key) => localStorage.getItem(key) === '1' || localStorage.getItem(key) === 'true');
+  if (hasLegacyInitialized) markSeedInitialized();
+  return hasLegacyInitialized;
+}
+
+function markSeedInitialized() {
+  localStorage.setItem(SEED_INITIALIZED_KEY, 'true');
+  LEGACY_SEED_INITIALIZED_KEYS.forEach((key) => localStorage.removeItem(key));
 }
 
 export function saveCard(card: SegmentCard) {
@@ -147,15 +236,19 @@ export function updateCard(cardId: string, patch: Partial<SegmentCard>) {
 }
 
 export function deleteCard(cardId: string) {
-  markSeedCardDeleted(cardId);
-  writeCards(readCards().filter((card) => card.cardId !== cardId));
-  removeCardFromClipbooks(cardId);
+  const targetCardId = cardId.trim();
+  if (!targetCardId) return;
+  markSeedCardDeleted(targetCardId);
+  writeCards(readCards().filter((card) => card.cardId !== targetCardId));
+  removeCardFromLegacyStores(targetCardId);
+  removeCardFromClipbooks(targetCardId);
+  removeClipbookPlacementsByCardId(targetCardId);
 }
 
-export function seedDemoCardsIfEmpty() {
-  if (localStorage.getItem(SEED_INITIALIZED_KEY) === '1') return;
+export function seedDemoCardsOnce() {
+  if (hasSeedInitialized()) return;
   if (readCards().length > 0) {
-    localStorage.setItem(SEED_INITIALIZED_KEY, '1');
+    markSeedInitialized();
     return;
   }
 
@@ -170,6 +263,7 @@ export function seedDemoCardsIfEmpty() {
     },
     createdAt,
     coverSource: 'none' as const,
+    sourceType: 'seed_demo' as const,
   };
 
   const deletedSeedCardIds = readDeletedSeedCardIds();
@@ -225,5 +319,7 @@ export function seedDemoCardsIfEmpty() {
   ].filter((card) => !deletedSeedCardIds.has(card.cardId));
 
   writeCards(seedCards);
-  localStorage.setItem(SEED_INITIALIZED_KEY, '1');
+  markSeedInitialized();
 }
+
+export const seedDemoCardsIfEmpty = seedDemoCardsOnce;

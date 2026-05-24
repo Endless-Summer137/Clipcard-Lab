@@ -1,9 +1,9 @@
 import { Download, Share2, Trash2, X } from 'lucide-react';
+import type { MouseEvent } from 'react';
 import { useEffect, useState } from 'react';
 import type { SegmentCard } from '../core/types';
 import { deleteCard, getCardById, updateCard } from '../core/cardStore';
 import { recordEvent } from '../core/eventStore';
-import { removeClipbookPlacementsByCardId } from '../core/clipbookPlacementStore';
 
 const userAdPreference = {
   enabled: true,
@@ -137,7 +137,7 @@ export function getCardTheme(card: SegmentCard) {
 
 function getAdLabel(card: SegmentCard) {
   if (!userAdPreference.enabled) return null;
-  if (card.adDecision.decision === 'reject') return null;
+  if (card.adDecision.decision !== 'allow' && card.adDecision.decision !== 'limit') return null;
   if (card.adDecision.reason.includes('无广告')) return null;
 
   const text = `${card.cardType} ${card.title} ${card.adDecision.reason}`;
@@ -145,6 +145,50 @@ function getAdLabel(card: SegmentCard) {
   if (text.includes('游戏') || text.includes('外设')) return '游戏外设';
   if (text.includes('景区') || text.includes('旅行') || text.includes('风景')) return '景区活动';
   return '内容相关服务';
+}
+
+function getDisplaySummary(card: SegmentCard) {
+  const sentences = card.summary.match(/[^。！？.!?]+[。！？.!?]?/g)?.map((item) => item.trim()).filter(Boolean);
+  if (!sentences?.length) return card.summary;
+  return sentences.slice(0, 3).join('');
+}
+
+function getClipbookTargets(card: SegmentCard) {
+  const kind = getCardKind(card);
+  const activityName = card.activityName ?? '';
+  const templateId = card.targetClipbookTemplate ?? '';
+
+  if (activityName.includes('分享你的美食搭子')) return ['美食搭子手账'];
+  if (activityName.includes('游戏高能操作时刻')) return ['FPS 高光册'];
+  if (activityName.includes('旅行') || templateId === 'scenery' || templateId === 'landscape') return ['旅行灵感手账'];
+  if (activityName.includes('节日')) return ['节日回忆手账'];
+  if (templateId === 'blank') return ['空白书手账'];
+  if (templateId === 'fps' || kind === 'game') return ['FPS 高光册'];
+  if (kind === 'food') return ['美食搭子手账'];
+  if (kind === 'travel') return ['旅行灵感手账'];
+  return ['主题手账'];
+}
+
+function isPlaceholderSourceUrl(value?: string) {
+  if (!value) return true;
+  try {
+    const url = new URL(value, window.location.href);
+    return url.hostname === 'example.com' || url.hostname.endsWith('.example.com');
+  } catch {
+    return true;
+  }
+}
+
+function buildDemoSourceUrl(card: SegmentCard) {
+  const videoId = card.sourceVideoId || card.videoId;
+  if (!videoId) return '';
+
+  const target = new URL(window.location.href);
+  target.search = '';
+  target.searchParams.set('page', 'demo');
+  target.searchParams.set('videoId', videoId);
+  target.searchParams.set('time', String(Math.max(0, card.segmentStart)));
+  return `${target.pathname}?${target.searchParams.toString()}`;
 }
 
 export function CardThumbnail({ card, onClick, className = 'aspect-[3/4]' }: { card: SegmentCard; onClick?: () => void; className?: string }) {
@@ -320,7 +364,6 @@ export function CardDetailView({ card, onClose, onDeleted }: { card: SegmentCard
 
   function confirmDeleteCard() {
     deleteCard(currentCard.cardId);
-    removeClipbookPlacementsByCardId(currentCard.cardId);
     recordEvent({
       eventType: 'card_deleted',
       videoId: currentCard.videoId,
@@ -332,6 +375,35 @@ export function CardDetailView({ card, onClose, onDeleted }: { card: SegmentCard
     onClose();
   }
 
+  function showDetailFeedback(message: string) {
+    setSourceFeedback(message);
+    window.setTimeout(() => setSourceFeedback(''), 2200);
+  }
+
+  function openSourceVideo(event: MouseEvent<HTMLButtonElement>) {
+    event.stopPropagation();
+    const sourceUrl = currentCard.sourceVideoUrl?.trim();
+
+    if (sourceUrl && !isPlaceholderSourceUrl(sourceUrl)) {
+      window.open(sourceUrl, '_blank', 'noopener,noreferrer');
+      showDetailFeedback('已打开原视频。');
+      return;
+    }
+
+    const demoUrl = buildDemoSourceUrl(currentCard);
+    if (demoUrl) {
+      showDetailFeedback('已定位到来源视频占位。');
+      window.setTimeout(() => {
+        window.location.href = demoUrl;
+      }, 120);
+      return;
+    }
+
+    showDetailFeedback('已定位到来源视频占位。');
+  }
+
+  const clipbookTargets = getClipbookTargets(currentCard);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/30 px-4 py-6 backdrop-blur-sm">
       <article className={`relative flex h-[82vh] w-full max-w-[430px] flex-col overflow-hidden rounded-[30px] border p-4 shadow-2xl ${theme.panel}`}>
@@ -340,10 +412,10 @@ export function CardDetailView({ card, onClose, onDeleted }: { card: SegmentCard
             <button type="button" onClick={() => setConfirmingDelete(true)} aria-label="删除" className="opacity-72 transition hover:opacity-100">
               <Trash2 className="h-5 w-5" strokeWidth={1.9} />
             </button>
-            <button type="button" aria-label="分享" className="opacity-72 transition hover:opacity-100">
+            <button type="button" onClick={() => showDetailFeedback('已生成分享预览。')} aria-label="分享" className="opacity-72 transition hover:opacity-100">
               <Share2 className="h-5 w-5" strokeWidth={1.9} />
             </button>
-            <button type="button" aria-label="下载" className="opacity-72 transition hover:opacity-100">
+            <button type="button" onClick={() => showDetailFeedback('已生成图片，后续可接入系统相册保存。')} aria-label="下载" className="opacity-72 transition hover:opacity-100">
               <Download className="h-5 w-5" strokeWidth={1.9} />
             </button>
           </div>
@@ -355,49 +427,67 @@ export function CardDetailView({ card, onClose, onDeleted }: { card: SegmentCard
         <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-24 pt-4">
           <div className="mx-auto max-w-[290px]">
             <div className="flex flex-wrap items-center gap-2">
+              {currentCard.activityName ? (
+                <span className={`rounded-full bg-white/45 px-3 py-1 text-xs font-medium ${theme.accent}`}>
+                  来自 {currentCard.activityName}
+                </span>
+              ) : null}
               <span className={`rounded-full px-3 py-1 text-xs font-medium ${theme.tag}`}>{getCardTypeLabel(currentCard)}</span>
               <span className={`text-xs ${theme.muted}`}>
-                {formatSeconds(currentCard.segmentStart)} - {formatSeconds(currentCard.segmentEnd)}
+                {formatSeconds(currentCard.segmentStart)}–{formatSeconds(currentCard.segmentEnd)}
               </span>
             </div>
             <h2 className="mt-5 text-2xl font-semibold leading-8">{currentCard.title}</h2>
             <p className={`mt-2 text-xs ${theme.muted}`}>生成于 {formatCreatedAt(currentCard.createdAt)}</p>
             <section className="mt-6 space-y-5 text-sm leading-7">
               <div>
-                <p className={`text-xs font-medium ${theme.accent}`}>谨慎摘要</p>
-                <p className="mt-1">{currentCard.summary}</p>
+                <p className={`text-xs font-medium ${theme.accent}`}>摘要</p>
+                <p className="mt-1">{getDisplaySummary(currentCard)}</p>
               </div>
-              <div>
-                <p className={`text-xs font-medium ${theme.accent}`}>保存理由</p>
-                <p className="mt-1">{currentCard.saveReason}</p>
-              </div>
-              <div>
-                <section className="rounded-3xl bg-white/38 p-3 shadow-sm">
-                  <p className={`text-xs font-medium ${theme.accent}`}>来源视频</p>
-                  <p className="mt-1 break-words text-sm leading-6">
-                    来源视频：{getSourceAuthor(currentCard)}《{getVideoSourceName(currentCard)}》
-                  </p>
-                  <p className={`mt-1 text-xs ${theme.muted}`}>
-                    片段时间：{formatSeconds(currentCard.segmentStart)}–{formatSeconds(currentCard.segmentEnd)}
-                  </p>
+              <section className="rounded-3xl bg-white/38 p-3 shadow-sm">
+                <p className={`text-xs font-medium ${theme.accent}`}>适合放入</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {clipbookTargets.map((target) => (
+                    <span key={target} className="rounded-full bg-white/65 px-3 py-1 text-xs font-medium shadow-sm">
+                      {target}
+                    </span>
+                  ))}
+                </div>
+                <p className={`mt-2 text-xs leading-5 ${theme.muted}`}>
+                  把这张卡片放进对应活动手账，整理成可分享的主题记录。
+                </p>
+              </section>
+              <section className="rounded-2xl bg-white/32 px-3 py-3 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className={`text-xs font-medium ${theme.accent}`}>来源</p>
+                    <p className="mt-1 break-words text-sm leading-6">
+                      来源：{getSourceAuthor(currentCard)}《{getVideoSourceName(currentCard)}》
+                    </p>
+                    <p className={`mt-1 text-xs ${theme.muted}`}>
+                      片段：{formatSeconds(currentCard.segmentStart)}–{formatSeconds(currentCard.segmentEnd)}
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setSourceFeedback('跳转原视频。')}
-                    className={`mt-2 text-xs font-medium ${theme.accent}`}
+                    onClick={openSourceVideo}
+                    className={`shrink-0 pt-6 text-xs font-medium ${theme.accent}`}
                     aria-label={`查看原视频 ${getSourceVideoUrl(currentCard)}`}
                   >
                     查看原视频 →
                   </button>
-                  {sourceFeedback ? <p className={`mt-1 text-xs ${theme.muted}`}>{sourceFeedback}</p> : null}
-                </section>
-              </div>
-              <div className="rounded-2xl bg-white/32 px-3 py-2 shadow-sm">
+                </div>
+              </section>
+              {sourceFeedback ? <p className={`text-center text-xs ${theme.muted}`}>{sourceFeedback}</p> : null}
+              <div className="rounded-2xl bg-white/28 px-3 py-2 shadow-sm">
                 <p className={`text-xs ${theme.muted}`}>AI 生成内容，请核查重要信息。</p>
                 <details className="mt-2">
                   <summary className={`cursor-pointer select-none text-xs font-medium ${theme.accent}`}>
                     生成依据
                   </summary>
-                  <p className={`mt-2 text-xs leading-5 ${theme.muted}`}>{currentCard.evidenceNote}</p>
+                  <p className={`mt-2 text-xs leading-5 ${theme.muted}`}>
+                    {currentCard.evidenceNote || '本卡片基于活动主题、视频标题、片段时间、关键帧画面和已有片段信息生成。当前可能未完整分析音频、字幕、OCR 或连续操作过程；重要信息请结合原视频核查。'}
+                  </p>
                 </details>
               </div>
               <div>
@@ -450,7 +540,7 @@ export function CardDetailView({ card, onClose, onDeleted }: { card: SegmentCard
         </div>
 
         {adLabel ? (
-          <aside className={`absolute bottom-5 left-5 max-w-[170px] rounded-2xl border px-3 py-2 text-xs shadow-sm ${theme.ad}`}>
+          <aside className={`absolute bottom-6 left-6 max-w-[170px] rounded-2xl border px-3 py-2 text-xs shadow-sm ${theme.ad}`}>
             <p className="font-semibold">广告 · {adLabel}</p>
             <p className="mt-1 opacity-70">商业内容已明确标注。</p>
           </aside>

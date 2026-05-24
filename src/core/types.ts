@@ -28,6 +28,7 @@ export interface Keyframe {
 
 export type VisionProvider = 'zhipu' | 'aliyun' | 'openai' | 'mock';
 export type AnalysisSource = 'vision_api' | 'rule_fallback' | 'mock_vision_fallback';
+export type CardSourceType = 'user_generated' | 'seed_demo' | 'fallback';
 export type VisionErrorType =
   | 'missing_api_key'
   | 'provider_overloaded'
@@ -195,6 +196,7 @@ export interface CardEngineInput {
   sourceAuthor?: string;
   sourceVideoId?: string;
   sourceVideoUrl?: string;
+  sourceType?: CardSourceType;
   coverImage?: string;
   coverFrame?: number;
   coverFrameTime?: number;
@@ -218,6 +220,7 @@ export interface SegmentCard {
   sourceAuthor?: string;
   sourceVideoId?: string;
   sourceVideoUrl?: string;
+  sourceType?: CardSourceType;
   cardType: string;
   title: string;
   summary: string;

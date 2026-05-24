@@ -5,7 +5,6 @@ import {
   saveCard as saveStoredCard,
   seedDemoCardsIfEmpty,
 } from '../core/cardStore';
-import { removeClipbookPlacementsByCardId } from '../core/clipbookPlacementStore';
 import type { SegmentCard } from '../core/types';
 
 export function getAllCardsForSelection() {
@@ -28,7 +27,6 @@ export function useClipCards() {
 
   const deleteCard = useCallback((cardId: string) => {
     deleteStoredCard(cardId);
-    removeClipbookPlacementsByCardId(cardId);
     return refreshCards();
   }, [refreshCards]);
 

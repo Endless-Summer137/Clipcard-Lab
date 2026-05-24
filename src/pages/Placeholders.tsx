@@ -31,11 +31,24 @@ interface ClipbookPageProps extends SimplePageProps {
 
 export function MyCardsPage({ onNavigate }: SimplePageProps) {
   const [selectedCard, setSelectedCard] = useState<SegmentCard | null>(null);
+  const [feedback, setFeedback] = useState('');
   const { cards, refreshCards } = useClipCards();
+  const isDevMode = new URLSearchParams(window.location.search).get('dev') === '1';
+
+  function handleCardDeleted() {
+    refreshCards();
+    setFeedback('已删除卡片');
+    window.setTimeout(() => setFeedback(''), 1800);
+  }
 
   return (
     <UserSubPageShell title="我的卡片" onBack={() => onNavigate('profile', { dev: false })} contentClassName="mt-5">
       <section>
+        {feedback ? (
+          <p className="mb-3 rounded-2xl bg-stone-900 px-4 py-2 text-center text-sm text-white shadow-sm">
+            {feedback}
+          </p>
+        ) : null}
         {cards.length > 0 ? (
           <div className="grid grid-cols-3 gap-3 pb-5">
             {cards.map((card) => <CardThumbnail key={card.cardId} card={card} onClick={() => setSelectedCard(card)} />)}
@@ -47,11 +60,24 @@ export function MyCardsPage({ onNavigate }: SimplePageProps) {
         )}
       </section>
 
+      {isDevMode ? (
+        <section className="mt-4 rounded-2xl bg-white px-4 py-3 text-xs leading-5 text-stone-500 shadow-sm shadow-stone-200">
+          <p className="font-semibold text-stone-700">cards.length: {cards.length}</p>
+          <div className="mt-2 space-y-1">
+            {cards.map((card) => (
+              <p key={card.cardId} className="break-all">
+                {card.cardId} · {card.sourceType ?? 'user_generated'} · deletable
+              </p>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       {selectedCard ? (
         <CardDetailView
           card={selectedCard}
           onClose={() => setSelectedCard(null)}
-          onDeleted={refreshCards}
+          onDeleted={handleCardDeleted}
         />
       ) : null}
     </UserSubPageShell>

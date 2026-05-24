@@ -301,6 +301,7 @@ export function generateSegmentCard(input: CardEngineInput): SegmentCard {
     sourceAuthor: input.sourceAuthor,
     sourceVideoId: input.sourceVideoId ?? input.videoId,
     sourceVideoUrl: input.sourceVideoUrl,
+    sourceType: input.sourceType ?? 'user_generated' as const,
   };
 
   return {
