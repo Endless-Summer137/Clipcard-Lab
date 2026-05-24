@@ -24,10 +24,14 @@ export interface DemoTemplateConfig {
   slots: DemoTemplateSlotConfig[];
 }
 
+function withBase(path: string) {
+  return `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`;
+}
+
 export const DEMO_VIDEOS: DemoVideoAssetConfig[] = [
   {
     videoId: 'demo_food_001',
-    assetUrl: '/demo-assets/videos/food.mp4',
+    assetUrl: withBase('demo-assets/videos/food.mp4'),
     videoTitle: '热锅上的烟火气',
     authorName: '@clipcard_food',
     sourceVideoUrl: 'https://example.com/clipcard/demo_food_001',
@@ -54,7 +58,7 @@ export const DEMO_VIDEOS: DemoVideoAssetConfig[] = [
   },
   {
     videoId: 'demo_game_001',
-    assetUrl: '/demo-assets/videos/game.mp4',
+    assetUrl: withBase('demo-assets/videos/game.mp4'),
     videoTitle: 'm0NESY 2025 超神高光回顾',
     authorName: '@ZqLjy20231124（仅做演示用）',
     sourceVideoUrl: 'https://example.com/clipcard/demo_game_001',
@@ -81,7 +85,7 @@ export const DEMO_VIDEOS: DemoVideoAssetConfig[] = [
   },
   {
     videoId: 'demo_city_001',
-    assetUrl: '/demo-assets/videos/city.mp4',
+    assetUrl: withBase('demo-assets/videos/city.mp4'),
     videoTitle: '城市航拍与天际线',
     authorName: '@clipcard_travel',
     sourceVideoUrl: 'https://example.com/clipcard/demo_city_001',
@@ -113,7 +117,7 @@ export const DEMO_TEMPLATES: DemoTemplateConfig[] = [
     templateId: 'fps',
     name: 'FPS 高光册',
     description: '深色背景、蓝紫/青色霓虹线条，一页可放 3 张卡片。',
-    backgroundImage: '/demo-assets/templates/fps-template.png',
+    backgroundImage: withBase('demo-assets/templates/fps-template.png'),
     slots: [
       { id: 'slot_1', slotId: 'slot_1', x: 7, y: 6, w: 26, h: 31, label: '高光 1' },
       { id: 'slot_2', slotId: 'slot_2', x: 37, y: 6, w: 26, h: 31, label: '高光 2' },
@@ -124,7 +128,7 @@ export const DEMO_TEMPLATES: DemoTemplateConfig[] = [
     templateId: 'scenery',
     name: '风景灵感册',
     description: '浅绿、雾蓝、山湖感背景，一页可放 3–4 张卡片。',
-    backgroundImage: '/demo-assets/templates/scenery-template.png',
+    backgroundImage: withBase('demo-assets/templates/scenery-template.png'),
     slots: [
       { id: 'slot_1', slotId: 'slot_1', x: 8, y: 12, w: 38, h: 28, label: '灵感 1' },
       { id: 'slot_2', slotId: 'slot_2', x: 54, y: 12, w: 38, h: 28, label: '灵感 2' },
@@ -136,7 +140,7 @@ export const DEMO_TEMPLATES: DemoTemplateConfig[] = [
     templateId: 'blank',
     name: '空白书',
     description: '米白纸张和书本感背景，可输入书名，一页可放 3–4 张卡片。',
-    backgroundImage: '/demo-assets/templates/blank-book-template.png',
+    backgroundImage: withBase('demo-assets/templates/blank-book-template.png'),
     slots: [
       { id: 'slot_1', slotId: 'slot_1', x: 9, y: 22, w: 38, h: 26, label: '页面 1' },
       { id: 'slot_2', slotId: 'slot_2', x: 54, y: 22, w: 38, h: 26, label: '页面 2' },

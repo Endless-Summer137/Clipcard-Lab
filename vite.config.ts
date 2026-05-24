@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => {
   loadServerEnv(mode);
 
   return {
+    base: process.env.VITE_BASE_PATH || '/',
     plugins: [
       react(),
       {

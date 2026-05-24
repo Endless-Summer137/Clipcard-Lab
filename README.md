@@ -1,6 +1,56 @@
-# Clipcard Lab
+# ClipCard 活动手账
 
-A Vite + React + TypeScript prototype for validating short-video clip intent cards, local event logging, clip-interest trend aggregation, and ad-fit gate decisions.
+把活动视频里的精彩片段，做成可分享的主题手账。
+
+## 在线体验
+
+点击这里体验：
+
+[https://endless-summer137.github.io/Clipcard-Lab/](https://endless-summer137.github.io/Clipcard-Lab/)
+
+说明：
+
+- 在线体验版使用默认 demo 素材。
+- 不需要本地安装。
+- 不需要 API key。
+- 视觉分析接口不可用时，会自动使用 fallback 生成卡片。
+
+## 本地运行
+
+```bash
+npm install
+npm run dev
+```
+
+On Windows PowerShell, if `npm.ps1` is blocked by execution policy, use:
+
+```bash
+npm.cmd install
+npm.cmd run dev
+```
+
+## 隐藏配置页
+
+本地开发时可通过：
+
+`?page=admin&dev=1`
+
+进入隐藏素材配置页。
+
+## API 说明
+
+GitHub Pages 在线演示版只部署静态前端，不部署 `/api/analyze-frames` 后端。在线版会在接口不可用时自动 fallback，仍可完成基础演示流程。
+
+如需本地测试视觉模型，请在本机创建 `.env`：
+
+```env
+VISION_PROVIDER=zhipu
+ZHIPU_MODEL=glm-4.6v-flash
+ZHIPU_FALLBACK_MODELS=glm-4v-flash
+ZHIPU_API_KEY=your_key_here
+```
+
+`.env` 是有意不上传/不呈现，用于保护 API key；不要提交 `.env`、API key、token 或私人账号信息。
 
 Main repository: https://github.com/Endless-Summer137/Clipcard-Lab.git
 
@@ -98,18 +148,4 @@ Vision API keys are optional. The project intentionally does not upload or displ
 - Ad-fit gate decisions that require clear ad labeling and do not present ads as neutral AI advice.
 - A shared-core architecture so the short-video feed, creator center, internal lab, future card library, and future clipbook use the same card, event, trend, budget, and ad logic.
 
-Current MVP limitation: the app does not automatically recognize full video frames or audio. It validates the clip-card mechanism through user-entered subtitles and descriptions.
-
-## Run
-
-```bash
-npm install
-npm run dev
-```
-
-On Windows PowerShell, if `npm.ps1` is blocked by execution policy, use:
-
-```bash
-npm.cmd install
-npm.cmd run dev
-```
+Current MVP limitation: the GitHub Pages build is a static frontend demo. It can capture demo video frames and generate cards with local fallback rules, but it does not deploy the optional local `/api/analyze-frames` backend, and it does not do audio transcription, OCR, or platform API integration.
