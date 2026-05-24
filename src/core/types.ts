@@ -32,6 +32,7 @@ export type CardSourceType = 'user_generated' | 'seed_demo' | 'fallback';
 export type VisionErrorType =
   | 'missing_api_key'
   | 'provider_overloaded'
+  | 'timeout'
   | 'daily_limit'
   | 'provider_error'
   | 'network_error'
@@ -86,6 +87,14 @@ export interface AnalyzeFramesResponse {
     fallbackReason?: string;
     fallbackUsed?: boolean;
     retryCount?: number;
+    primaryModel?: string;
+    fallbackModel?: string;
+    primaryTimeoutMs?: number;
+    fallbackTimeoutMs?: number;
+    totalElapsedMs?: number;
+    primaryStatus?: 'success' | 'timeout' | 'overloaded' | 'error' | 'skipped';
+    fallbackStatus?: 'success' | 'timeout' | 'overloaded' | 'error' | 'skipped';
+    finalAnalysisSource?: 'vision_api' | 'rule_fallback' | 'mock_fallback';
     error?: string;
   };
 }

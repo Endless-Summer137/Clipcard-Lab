@@ -5,6 +5,7 @@ declare const fetch: (input: string, init?: {
   method?: string;
   headers?: Record<string, string>;
   body?: string;
+  signal?: unknown;
 }) => Promise<{
   ok: boolean;
   status: number;
@@ -15,17 +16,27 @@ export interface ProviderAnalyzeOptions {
   maxAttempts?: number;
 }
 
+export type VisionModelStatus = 'success' | 'timeout' | 'overloaded' | 'error' | 'skipped';
+
 export interface ProviderAnalyzeResult {
   visionAnalysis: VisionAnalysis;
   provider: VisionProvider;
   requestedModel?: string;
   actualModel?: string;
+  primaryModel?: string;
+  fallbackModel?: string;
   failedModel?: string;
   errorType?: VisionErrorType;
   errorCode?: string;
   fallbackReason?: string;
   fallbackUsed: boolean;
   retryCount: number;
+  primaryTimeoutMs?: number;
+  fallbackTimeoutMs?: number;
+  totalElapsedMs?: number;
+  primaryStatus?: VisionModelStatus;
+  fallbackStatus?: VisionModelStatus;
+  finalAnalysisSource?: 'vision_api' | 'rule_fallback' | 'mock_fallback';
   attemptedCallCount: number;
   successCallCount: number;
 }
@@ -40,6 +51,12 @@ export class VisionProviderError extends Error {
   fallbackReason?: string;
   fallbackUsed?: boolean;
   retryCount?: number;
+  primaryTimeoutMs?: number;
+  fallbackTimeoutMs?: number;
+  totalElapsedMs?: number;
+  primaryStatus?: VisionModelStatus;
+  fallbackStatus?: VisionModelStatus;
+  finalAnalysisSource?: 'vision_api' | 'rule_fallback' | 'mock_fallback';
   attemptedCallCount?: number;
   successCallCount?: number;
 
@@ -54,6 +71,12 @@ export class VisionProviderError extends Error {
     fallbackReason?: string;
     fallbackUsed?: boolean;
     retryCount?: number;
+    primaryTimeoutMs?: number;
+    fallbackTimeoutMs?: number;
+    totalElapsedMs?: number;
+    primaryStatus?: VisionModelStatus;
+    fallbackStatus?: VisionModelStatus;
+    finalAnalysisSource?: 'vision_api' | 'rule_fallback' | 'mock_fallback';
     attemptedCallCount?: number;
     successCallCount?: number;
   }) {
@@ -68,6 +91,12 @@ export class VisionProviderError extends Error {
     this.fallbackReason = input.fallbackReason;
     this.fallbackUsed = input.fallbackUsed;
     this.retryCount = input.retryCount;
+    this.primaryTimeoutMs = input.primaryTimeoutMs;
+    this.fallbackTimeoutMs = input.fallbackTimeoutMs;
+    this.totalElapsedMs = input.totalElapsedMs;
+    this.primaryStatus = input.primaryStatus;
+    this.fallbackStatus = input.fallbackStatus;
+    this.finalAnalysisSource = input.finalAnalysisSource;
     this.attemptedCallCount = input.attemptedCallCount;
     this.successCallCount = input.successCallCount;
   }
@@ -88,6 +117,12 @@ export interface ProviderErrorDetails {
   fallbackReason?: string;
   fallbackUsed?: boolean;
   retryCount?: number;
+  primaryTimeoutMs?: number;
+  fallbackTimeoutMs?: number;
+  totalElapsedMs?: number;
+  primaryStatus?: VisionModelStatus;
+  fallbackStatus?: VisionModelStatus;
+  finalAnalysisSource?: 'vision_api' | 'rule_fallback' | 'mock_fallback';
   attemptedCallCount?: number;
   successCallCount?: number;
 }
@@ -103,6 +138,12 @@ export function getProviderErrorDetails(error: unknown): ProviderErrorDetails {
       fallbackReason: error.fallbackReason,
       fallbackUsed: error.fallbackUsed,
       retryCount: error.retryCount,
+      primaryTimeoutMs: error.primaryTimeoutMs,
+      fallbackTimeoutMs: error.fallbackTimeoutMs,
+      totalElapsedMs: error.totalElapsedMs,
+      primaryStatus: error.primaryStatus,
+      fallbackStatus: error.fallbackStatus,
+      finalAnalysisSource: error.finalAnalysisSource,
       attemptedCallCount: error.attemptedCallCount,
       successCallCount: error.successCallCount,
     };
@@ -153,12 +194,14 @@ export async function postVisionChatCompletion({
   model,
   prompt,
   images,
+  signal,
 }: {
   endpoint: string;
   apiKey: string;
   model: string;
   prompt: string;
   images: Array<{ type: string; image_url: { url: string } }>;
+  signal?: unknown;
 }) {
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -178,6 +221,7 @@ export async function postVisionChatCompletion({
         ],
       }],
     }),
+    signal,
   });
 
   const raw = await response.text();

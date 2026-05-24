@@ -89,6 +89,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
   const longPressTimerRef = useRef<number | null>(null);
   const didLongPressRef = useRef(false);
   const wasPlayingBeforeSegmentModeRef = useRef(false);
+  const wasPlayingBeforeCollectRef = useRef(false);
 
   const video = videos[activeIndex] ?? defaultDemoVideos[0];
   const videoSrc = brokenVideoIds.has(video.videoId) ? undefined : videoObjectUrls[video.videoId] ?? video.videoDataUrl;
@@ -198,6 +199,17 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
     const videoElement = videoElementRef.current;
     if (videoElement && Number.isFinite(videoElement.currentTime)) return Math.max(0, videoElement.currentTime);
     return Math.max(0, video.defaultSegmentStart + (video.defaultSegmentEnd - video.defaultSegmentStart) / 2);
+  }
+
+  function pauseForCollect() {
+    const videoElement = videoElementRef.current;
+    const triggerTime = getTriggerTime();
+    wasPlayingBeforeCollectRef.current = Boolean(videoElement && !videoElement.paused);
+    if (videoElement) {
+      videoElement.pause();
+      setIsVideoPaused(true);
+    }
+    return triggerTime;
   }
 
   function buildDefaultSelection(currentTime = getTriggerTime()): SegmentSelectionState {
@@ -499,10 +511,11 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
   }
 
   async function buildCardFromVideo(triggerMode: TriggerMode = 'short_press', selection?: ManualSegmentSelection) {
+    if (triggerMode === 'short_press') pauseForCollect();
     setIsGeneratingCard(true);
     setActiveCard(null);
     setDetailCard(null);
-    setCardFeedback('');
+    setCardFeedback(triggerMode === 'short_press' ? '正在生成活动卡片……' : '');
 
     try {
       const segment = resolveSegment(triggerMode, selection);
@@ -654,6 +667,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
     event.preventDefault();
     event.stopPropagation();
     if (!video.activityEnabled || isGeneratingCard || segmentSelection) return;
+    pauseForCollect();
     didLongPressRef.current = false;
     clearLongPressTimer();
     longPressTimerRef.current = window.setTimeout(() => {
@@ -680,6 +694,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
     if (event.key !== 'Enter' && event.key !== ' ') return;
     event.preventDefault();
     event.stopPropagation();
+    pauseForCollect();
     if (!isGeneratingCard && !segmentSelection) void buildCardFromVideo('short_press');
   }
 
@@ -887,7 +902,7 @@ export function DemoFeedPage({ onOpenProfile, onOpenClipbookTemplate }: DemoFeed
       {isGeneratingCard ? (
         <div className="absolute inset-x-0 bottom-24 z-40 flex justify-center px-4">
           <p className="rounded-full bg-white/92 px-4 py-2 text-sm font-medium text-stone-800 shadow-lg backdrop-blur">
-            正在收集这一刻……
+            {cardFeedback || '正在收集这一刻……'}
           </p>
         </div>
       ) : null}

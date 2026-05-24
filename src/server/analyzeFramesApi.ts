@@ -151,12 +151,20 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
       requestedModel: result.requestedModel,
       actualProvider: result.provider,
       actualModel: result.actualModel,
+      primaryModel: result.primaryModel,
+      fallbackModel: result.fallbackModel,
       failedModel: result.failedModel,
       errorType: result.errorType,
       errorCode: result.errorCode,
       fallbackReason: result.fallbackReason,
       fallbackUsed: result.fallbackUsed,
       retryCount: result.retryCount,
+      primaryTimeoutMs: result.primaryTimeoutMs,
+      fallbackTimeoutMs: result.fallbackTimeoutMs,
+      totalElapsedMs: result.totalElapsedMs,
+      primaryStatus: result.primaryStatus,
+      fallbackStatus: result.fallbackStatus,
+      finalAnalysisSource: result.finalAnalysisSource,
     });
     recentStatus = {
       configuredProvider,
@@ -164,7 +172,7 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
       todayCallCount: realCallCount,
       attemptedCallCount: realCallCount,
       successCallCount: realSuccessCount,
-      fallback: result.provider === 'mock',
+      fallback: result.provider === 'mock' || result.fallbackUsed,
       recentVisionAnalysis: result.visionAnalysis,
       recentKeyframes: input.keyframes.map(toDebugKeyframe),
       debug: resultDebug,
@@ -191,12 +199,20 @@ async function handleAnalyzeFrames(body: unknown): Promise<AnalyzeFramesResponse
       requestedModel: details.requestedModel ?? getRequestedModel(provider, env),
       actualProvider: 'mock',
       actualModel: 'mock',
+      primaryModel: getRequestedModel(provider, env),
+      fallbackModel: getFallbackModel(provider, env),
       failedModel: details.failedModel,
       errorType: details.errorType,
       errorCode: details.errorCode,
       fallbackReason: details.fallbackReason ?? '真实视觉模型不可用，已切到本地 mock 兜底。',
       fallbackUsed: true,
       retryCount: details.retryCount ?? 0,
+      primaryTimeoutMs: details.primaryTimeoutMs,
+      fallbackTimeoutMs: details.fallbackTimeoutMs,
+      totalElapsedMs: details.totalElapsedMs,
+      primaryStatus: details.primaryStatus,
+      fallbackStatus: details.fallbackStatus,
+      finalAnalysisSource: details.finalAnalysisSource ?? 'mock_fallback',
     });
     recentStatus = {
       configuredProvider,
@@ -335,4 +351,12 @@ function getRequestedModel(provider: VisionProvider, env: Record<string, string 
   if (provider === 'aliyun') return getModel(env, 'ALIYUN_MODEL', 'qwen-vl-plus');
   if (provider === 'openai') return getModel(env, 'OPENAI_MODEL', 'gpt-4o-mini');
   return 'mock';
+}
+
+function getFallbackModel(provider: VisionProvider, env: Record<string, string | undefined>) {
+  if (provider !== 'zhipu') return undefined;
+  return String(env.ZHIPU_FALLBACK_MODELS ?? 'glm-4v-flash')
+    .split(',')
+    .map((model) => model.trim())
+    .find(Boolean);
 }

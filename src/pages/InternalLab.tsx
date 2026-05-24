@@ -149,7 +149,15 @@ export function InternalLab() {
               <Metric label="success calls" value={String(visionStatus?.successCallCount ?? 0)} />
               <Metric label="fallback" value={String(Boolean(visionStatus?.fallback ?? latestFrameCard?.analysisSource === 'rule_fallback'))} />
               <Metric label="requested model" value={visionStatus?.debug?.requestedModel ?? 'unknown'} />
+              <Metric label="primaryModel" value={visionStatus?.debug?.primaryModel ?? visionStatus?.debug?.requestedModel ?? 'unknown'} />
+              <Metric label="fallbackModel" value={visionStatus?.debug?.fallbackModel ?? 'none'} />
               <Metric label="actual model" value={visionStatus?.debug?.actualModel ?? 'unknown'} />
+              <Metric label="primaryTimeoutMs" value={String(visionStatus?.debug?.primaryTimeoutMs ?? 0)} />
+              <Metric label="fallbackTimeoutMs" value={String(visionStatus?.debug?.fallbackTimeoutMs ?? 0)} />
+              <Metric label="totalElapsedMs" value={String(visionStatus?.debug?.totalElapsedMs ?? 0)} />
+              <Metric label="primaryStatus" value={visionStatus?.debug?.primaryStatus ?? 'unknown'} />
+              <Metric label="fallbackStatus" value={visionStatus?.debug?.fallbackStatus ?? 'unknown'} />
+              <Metric label="finalAnalysisSource" value={visionStatus?.debug?.finalAnalysisSource ?? 'unknown'} />
               <Metric label="errorType" value={visionStatus?.debug?.errorType ?? 'none'} />
               <Metric label="errorCode" value={visionStatus?.debug?.errorCode ?? 'none'} />
               <Metric label="fallbackUsed" value={String(Boolean(visionStatus?.debug?.fallbackUsed))} />

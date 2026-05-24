@@ -1001,22 +1001,28 @@ function CardPickerModal({
           </button>
         </header>
         {cards.length > 0 ? (
-          <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 gap-3 overflow-y-auto pb-4 min-[390px]:grid-cols-3">
+          <div className="mt-4 grid min-h-0 flex-1 grid-cols-2 items-start gap-3 overflow-y-auto pb-4 min-[390px]:grid-cols-3">
             {cards.map((card) => {
               const placed = placedCardIds.has(card.cardId);
               return (
-                <div key={card.cardId} className="relative block min-h-[120px] w-full">
-                  <div className={placed ? 'pointer-events-none grayscale opacity-45' : 'opacity-100'}>
+                <div
+                  key={card.cardId}
+                  className={`relative aspect-[9/16] w-full overflow-hidden rounded-2xl ${placed ? 'cursor-not-allowed' : ''}`}
+                >
+                  <div className={`absolute inset-0 ${placed ? 'pointer-events-none grayscale opacity-60' : ''}`}>
                     <CardThumbnail
                       card={card}
-                      onClick={() => onSelect(card)}
-                      className="aspect-[3/4] min-h-[120px] w-full opacity-100"
+                      onClick={placed ? undefined : () => onSelect(card)}
+                      className="h-full w-full rounded-2xl"
                     />
                   </div>
                   {placed ? (
-                    <span className="pointer-events-none absolute inset-x-1 top-1/2 -rotate-12 rounded-full bg-stone-900/75 py-1 text-center text-xs font-semibold text-white">
-                      已放置
-                    </span>
+                    <>
+                      <div className="pointer-events-none absolute inset-0 z-20 bg-black/30" />
+                      <span className="pointer-events-none absolute left-1/2 top-1/2 z-30 -translate-x-1/2 -translate-y-1/2 -rotate-12 whitespace-nowrap rounded-full bg-stone-900/85 px-4 py-1.5 text-sm font-bold text-white shadow-[0_4px_12px_rgba(0,0,0,0.18)]">
+                        已放置
+                      </span>
+                    </>
                   ) : null}
                 </div>
               );
